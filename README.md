@@ -22,6 +22,7 @@
 | [docs/04-security.md](docs/04-security.md) | 威胁模型、私有 CA 在 iOS 的落地、桥的不变量、承认的弱化点 |
 | [docs/05-build-and-signing.md](docs/05-build-and-signing.md) | 构建环境、entitlements 清单、7 天重签运维、CI 方案 |
 | [docs/08-ci-environment.md](docs/08-ci-environment.md) | GitHub Actions macOS Runner 环境：工作流、Xcode 固定、缓存、产物校验与排错 |
+| [altstore/README.md](altstore/README.md) | AltStore 软件源：添加地址、随 Release 自动更新、手工重建 |
 | [docs/06-testing.md](docs/06-testing.md) | 测试分层、契约测试移植、P0/P1/负面用例、真机矩阵、证据记录 |
 | [docs/07-roadmap-and-risks.md](docs/07-roadmap-and-risks.md) | 阶段划分、里程碑、9 条风险登记、待决问题、37 人日估算 |
 

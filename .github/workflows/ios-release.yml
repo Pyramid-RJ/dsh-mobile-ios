@@ -124,6 +124,8 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
+      - uses: actions/checkout@v4
+
       - name: Download build
         uses: actions/download-artifact@v4
         with:
@@ -137,6 +139,40 @@ jobs:
           set -euo pipefail
           sha256sum ./*.ipa > SHA256SUMS
           cat SHA256SUMS
+
+      - name: Build the AltStore source
+        shell: bash
+        env:
+          VERSION: ${{ needs.meta.outputs.version }}
+          REPOSITORY: ${{ github.repository }}
+          TAG: ${{ github.ref_type == 'tag' && github.ref_name || format('ios-v{0}', needs.meta.outputs.version) }}
+        run: |
+          set -euo pipefail
+
+          ipa="$(ls dist/*.ipa | head -n 1)"
+          size="$(stat -c%s "$ipa")"
+          min_os="$(jq -r '.minIOS' dist/release.json)"
+          bundle_id="$(jq -r '.bundleId' dist/release.json)"
+
+          # The previous release's source keeps the version history, so entries
+          # accumulate instead of being replaced by the newest build.
+          if ! curl -fsSL "https://github.com/$REPOSITORY/releases/latest/download/source.json" -o /tmp/base.json; then
+            echo "::notice::No previous source.json in releases; seeding from altstore/source.json"
+            cp altstore/source.json /tmp/base.json
+          fi
+
+          python3 altstore/build_source.py \
+            --base /tmp/base.json \
+            --output dist/source.json \
+            --repo "$REPOSITORY" \
+            --tag "$TAG" \
+            --version "$VERSION" \
+            --bundle-id "$bundle_id" \
+            --ipa-name "$(basename "$ipa")" \
+            --size "$size" \
+            --min-os "$min_os"
+
+          jq -r '.apps[0].versions[0].downloadURL' dist/source.json
 
       - name: Create or update the release
         shell: bash
@@ -159,6 +195,11 @@ jobs:
             echo "- Xcode: ${{ env.XCODE_VERSION }}"
             echo "- signing: none - re-sign locally with your own Apple ID (Xcode / AltStore / Sideloadly)"
             echo
+            echo "### AltStore"
+            echo
+            echo "Add this source in AltStore, then install from there:"
+            echo "https://github.com/$REPOSITORY/releases/latest/download/source.json"
+            echo
             echo "### How to install"
             echo
             echo "1. Download the .ipa asset."
@@ -172,7 +213,7 @@ jobs:
           } > "$notes"
 
           shopt -s nullglob
-          assets=(dist/*.ipa dist/SHA256SUMS dist/release.json)
+          assets=(dist/*.ipa dist/SHA256SUMS dist/release.json dist/source.json)
           assets+=(dist/*.dSYM.zip)
           shopt -u nullglob
 
@@ -185,3 +226,26 @@ jobs:
               --notes-file "$notes"
           fi
           echo "::notice::Published $TAG"
+
+      - name: Commit the source back to main
+        shell: bash
+        env:
+          VERSION: ${{ needs.meta.outputs.version }}
+        run: |
+          set -euo pipefail
+          if [[ ! -f dist/source.json ]]; then
+            echo "::warning::no dist/source.json to commit"
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git fetch --depth=1 origin main
+          git checkout -f -B main origin/main
+          cp dist/source.json altstore/source.json
+          if git diff --quiet -- altstore/source.json; then
+            echo "altstore/source.json is already up to date"
+            exit 0
+          fi
+          git add altstore/source.json
+          git commit -m "chore(altstore): publish $VERSION to the source"
+          git push origin main || echo "::warning::could not push altstore/source.json back to main"

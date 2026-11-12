@@ -1,0 +1,35 @@
+{
+  "name": "DSH Mobile (community)",
+  "identifier": "io.example.dshmobile.source",
+  "subtitle": "Side-loadable iOS client for DeepSeek Harness",
+  "description": "Unofficial community build of a thin iOS shell for DeepSeek Harness. The .ipa is unsigned: AltStore re-signs it with your own Apple ID, and the signature expires after 7 days like any free-account side-load.",
+  "iconURL": "https://raw.githubusercontent.com/Pyramid-RJ/dsh-mobile-ios/main/ios/App/Assets.xcassets/AppIcon.appiconset/AppIcon-1024.png",
+  "headerURL": "https://raw.githubusercontent.com/Pyramid-RJ/dsh-mobile-ios/main/ios/App/Assets.xcassets/AppIcon.appiconset/AppIcon-1024.png",
+  "tintColor": "#3B82F6",
+  "featuredApps": [
+    "io.example.dshmobile.ios"
+  ],
+  "apps": [
+    {
+      "name": "DSH Mobile",
+      "bundleIdentifier": "io.example.dshmobile.ios",
+      "developerName": "Pyramid-RJ (community)",
+      "subtitle": "连到你自己电脑上的 DeepSeek Harness",
+      "localizedDescription": "把电脑上的 DeepSeek Harness 变成一个可以长按打开的 App。\n\n当前是 P0 骨架：诊断页、配对输入解析、S-1 信任探针。配对、页面桥与附件（P1-P4）尚未实现。\n\n不提供任何通知：免费签名的 Apple ID 没有 APNs 权限；需要推送请继续用 Safari 添加到主屏幕的方式。",
+      "iconURL": "https://raw.githubusercontent.com/Pyramid-RJ/dsh-mobile-ios/main/ios/App/Assets.xcassets/AppIcon.appiconset/AppIcon-1024.png",
+      "tintColor": "#3B82F6",
+      "category": "utilities",
+      "versions": [
+        {
+          "version": "0.1.0",
+          "date": "2026-11-12",
+          "downloadURL": "https://github.com/Pyramid-RJ/dsh-mobile-ios/releases/download/ios-v0.1.0/DSHMobile-0.1.0-unsigned.ipa",
+          "size": 112153,
+          "minOSVersion": "17.0",
+          "localizedDescription": "P0 骨架：诊断页、配对输入解析、S-1 探针（固定私有 CA + 指纹比对）。"
+        }
+      ]
+    }
+  ],
+  "news": []
+}
