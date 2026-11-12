@@ -75,7 +75,9 @@ struct GatewayWebView: UIViewRepresentable {
             withError error: Error
         ) {
             // Left visible in the Xcode console; the page itself reports its state.
-            NSLog("gateway load failed: %@ (%d)", error.localizedDescription, (error as NSError).code)
+            let message = "gateway load failed: " + error.localizedDescription
+                + " (" + String((error as NSError).code) + ")"
+            NSLog("%@", message)
         }
     }
 }
