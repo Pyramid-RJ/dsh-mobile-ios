@@ -24,11 +24,14 @@
           "version": "0.1.0",
           "date": "2026-11-12",
           "downloadURL": "https://github.com/Pyramid-RJ/dsh-mobile-ios/releases/download/ios-v0.1.0/DSHMobile-0.1.0-unsigned.ipa",
-          "size": 112153,
+          "size": 112747,
           "minOSVersion": "17.0",
-          "localizedDescription": "P0 骨架：诊断页、配对输入解析、S-1 探针（固定私有 CA + 指纹比对）。"
+          "localizedDescription": "Unsigned build 0.1.0"
         }
-      ]
+      ],
+      "version": "0.1.0",
+      "versionDate": "2026-11-12",
+      "versionDescription": "Unsigned build 0.1.0"
     }
   ],
   "news": []
