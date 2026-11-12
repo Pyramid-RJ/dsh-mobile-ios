@@ -31,6 +31,12 @@ final class BridgeHost: NSObject, WKScriptMessageHandler {
         guard isTrusted(origin: message.frameInfo.securityOrigin) else { return }
         guard let text = message.body as? String else { return }
 
+        if let object = try? JSONSerialization.jsonObject(with: Data(text.utf8)) as? [String: Any],
+           let event = object["event"] as? String {
+            appendLog("event " + event)
+            return
+        }
+
         let request: BridgeRequest
         do {
             request = try BridgeRequest.parse(text)
@@ -41,6 +47,8 @@ final class BridgeHost: NSObject, WKScriptMessageHandler {
             reply(BridgeReply.failure(requestId: "<unknown>", code: .badMessage, message: "unreadable message"))
             return
         }
+
+        appendLog("invoke " + request.action)
 
         guard pending.begin(request.requestId) else {
             reply(BridgeReply.failure(requestId: request.requestId, code: .badMessage, message: "duplicate or too many pending requests"))
@@ -104,7 +112,14 @@ final class BridgeHost: NSObject, WKScriptMessageHandler {
         return try await client.renew(deviceToken: deviceToken)
     }
 
+    private func appendLog(_ line: String) {
+        Task { @MainActor in
+            BridgeLog.shared.append(line)
+        }
+    }
+
     private func reply(_ reply: BridgeReply) {
+        appendLog(reply.ok ? "reply ok" : "reply failed")
         guard let webView else { return }
         let literal = BridgeHost.javaScriptLiteral(reply.json())
         webView.evaluateJavaScript("window.__DSH_MOBILE_NATIVE_DELIVER__(" + literal + ");") { _, error in

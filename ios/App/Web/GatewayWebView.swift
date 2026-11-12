@@ -7,10 +7,33 @@ import DSHTrust
 struct GatewayWebViewScreen: View {
     let session: BrowserSession
 
+    @ObservedObject private var bridgeLog = BridgeLog.shared
+    @State private var showsLog = false
+
     var body: some View {
         GatewayWebView(session: session)
             .navigationTitle(session.origin.host)
             .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button("桥日志") { showsLog = true }
+                }
+            }
+            .sheet(isPresented: $showsLog) {
+                NavigationStack {
+                    List(bridgeLog.entries, id: \.self) { line in
+                        Text(line)
+                            .font(.caption2.monospaced())
+                    }
+                    .navigationTitle("桥日志")
+                    .navigationBarTitleDisplayMode(.inline)
+                    .toolbar {
+                        ToolbarItem(placement: .topBarTrailing) {
+                            Button("关闭") { showsLog = false }
+                        }
+                    }
+                }
+            }
     }
 }
 

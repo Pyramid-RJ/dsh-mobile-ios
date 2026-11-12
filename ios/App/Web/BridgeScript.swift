@@ -43,8 +43,15 @@ enum BridgeScript {
 
       const capabilities = __CAPABILITIES__;
 
+      const notify = (event) => {
+        try { handler.postMessage(JSON.stringify({ version: 1, event: event })); } catch (e) {}
+      };
+
       window.__DSH_MOBILE_NATIVE__ = {
-        capabilities: () => Promise.resolve(capabilities.slice()),
+        capabilities: () => {
+          notify('capabilities.requested');
+          return Promise.resolve(capabilities.slice());
+        },
         invoke: (action, input, options) => new Promise((resolve, reject) => {
           const opts = options || {};
           const requestId = opts.requestId || ('ios-' + Date.now() + '-' + Math.random().toString(36).slice(2));
@@ -83,6 +90,7 @@ enum BridgeScript {
         })
       };
 
+      notify('bridge.ready');
       window.dispatchEvent(new Event('dsh-mobile-native-ready'));
     })();
     """
