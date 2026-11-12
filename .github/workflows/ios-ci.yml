@@ -7,11 +7,16 @@ on:
       - "ios/**"
       - ".github/workflows/ios-ci.yml"
       - ".github/actions/**"
+    # Documentation-only commits should not spend macOS minutes on a full build.
+    paths-ignore:
+      - "**.md"
   pull_request:
     paths:
       - "ios/**"
       - ".github/workflows/ios-ci.yml"
       - ".github/actions/**"
+    paths-ignore:
+      - "**.md"
   workflow_dispatch:
     inputs:
       xcode-version:
