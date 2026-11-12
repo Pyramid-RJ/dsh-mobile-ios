@@ -8,6 +8,8 @@ import DSHPairing
 struct RootView: View {
     @State private var input = ""
     @State private var result = "粘贴配对链接或配对键后点解析。"
+    @State private var parsedGateway: String?
+    @State private var parsedInstance: String?
 
     private var appVersion: String {
         let info = Bundle.main.infoDictionary
@@ -48,7 +50,7 @@ struct RootView: View {
 
                 Section("P0 探针") {
                     NavigationLink("S-1：WKWebView + 固定私有 CA") {
-                        S1ProbeView()
+                        S1ProbeView(initialGateway: parsedGateway ?? "", expectedInstanceId: parsedInstance)
                     }
                 }
 
@@ -78,8 +80,12 @@ struct RootView: View {
                 let key = try PairingKey.parse(trimmed)
                 let pinning = key.requiresPinnedCertificateAuthority ? "是" : "否"
                 result = "配对键 \(key.kind.rawValue)：实例 \(String(key.instanceId.prefix(12)))…，需要固定 CA：\(pinning)"
+                parsedGateway = nil
+                parsedInstance = key.instanceId
             } catch {
                 result = "配对键无效：\(error)"
+                parsedGateway = nil
+                parsedInstance = nil
             }
             return
         }
@@ -87,9 +93,14 @@ struct RootView: View {
         do {
             let link = try PairingLink.parse(trimmed)
             let token = link.token == nil ? "无" : "有"
-            result = "Origin \(link.origin.description)，配对 token：\(token)"
+            let instance = link.instanceId.map { String($0.prefix(12)) + "…" } ?? "无"
+            result = "Origin \(link.origin.description)，配对 token：\(token)，CA instance：\(instance)"
+            parsedGateway = link.origin.description
+            parsedInstance = link.instanceId
         } catch {
             result = "链接无效：\(error)"
+            parsedGateway = nil
+            parsedInstance = nil
         }
     }
 }

@@ -94,6 +94,26 @@ final class PairingLinkTests: XCTestCase {
         let link = try PairingLink.parse(raw)
         XCTAssertEqual(link.description, raw)
     }
+
+    func testParsesInstanceAlongsideToken() throws {
+        let instance = String(repeating: "b", count: 64)
+        let raw = "https://host.example/mobile-access/pair#instance=" + instance + "&token=" + token
+        let link = try PairingLink.parse(raw)
+        XCTAssertEqual(link.instanceId, instance)
+        XCTAssertEqual(link.token, token)
+        XCTAssertEqual(link.description, raw)
+    }
+
+    func testRejectsInvalidInstanceInFragment() {
+        let raw = "https://host.example/mobile-access/pair#instance=short&token=" + token
+        XCTAssertThrowsError(try PairingLink.parse(raw)) { error in
+            XCTAssertEqual(error as? PairingError, PairingError.invalidInstanceId)
+        }
+    }
+
+    func testLocalizedDescriptionIsReadable() {
+        XCTAssertEqual(PairingError.missingHost.localizedDescription, "URL has no usable host")
+    }
 }
 
 final class NavigationPolicyTests: XCTestCase {

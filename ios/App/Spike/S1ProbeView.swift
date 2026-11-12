@@ -13,7 +13,14 @@ import DSHTrust
 /// - "固定 CA 通过" plus "didFinish" means the pinned decision was accepted;
 /// - no challenge line plus a -1202 error means ATS/WebKit refused earlier.
 struct S1ProbeView: View {
-    @State private var gateway = "https://"
+    @State private var gateway: String
+    /// instanceId from the pairing link; the fetched CA must hash to it.
+    private let expectedInstanceId: String?
+
+    init(initialGateway: String = "", expectedInstanceId: String? = nil) {
+        _gateway = State(initialValue: initialGateway.isEmpty ? "https://" : initialGateway)
+        self.expectedInstanceId = expectedInstanceId
+    }
     @State private var logs: [ProbeLogEntry] = []
     @State private var verdict = "未运行"
     @State private var isLoading = false
@@ -86,6 +93,17 @@ struct S1ProbeView: View {
                 let ca = try await fetchCertificateAuthority(origin: origin)
                 append("CA subject: " + ca.subjectSummary)
                 append("CA sha256: " + ca.sha256Hex)
+
+                if let expectedInstanceId {
+                    append("期望 instance: " + expectedInstanceId)
+                    guard ca.matches(instanceId: expectedInstanceId) else {
+                        append("CA 指纹与链接里的 instance 不一致，已停止加载")
+                        verdict = "CA 与 instance 不匹配：证书不是配对码指向的那一个，不要继续"
+                        isLoading = false
+                        return
+                    }
+                    append("instance 指纹一致")
+                }
 
                 guard let url = origin.url(path: "/") else { throw ProbeFailure.invalidURL }
                 session = ProbeSession(url: url, evaluator: PinnedTrustEvaluator(certificateAuthority: ca))

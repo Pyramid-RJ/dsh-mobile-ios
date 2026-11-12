@@ -4,7 +4,7 @@ import Foundation
 ///
 /// The cases are deliberately coarse: the UI only has to tell the user which
 /// input to fix, and the contract tests assert on these exact values.
-public enum PairingError: Error, Equatable, Sendable, CustomStringConvertible {
+public enum PairingError: Error, Equatable, Sendable, CustomStringConvertible, LocalizedError {
     /// Empty input, or only whitespace.
     case empty
     /// A pairing key without the dsh1|dsh2.<instanceId>.<token> shape.
@@ -23,6 +23,12 @@ public enum PairingError: Error, Equatable, Sendable, CustomStringConvertible {
     case invalidPort
     /// The string is not a URL.
     case malformedLink
+
+    /// What `error.localizedDescription` shows. Without this the UI falls back
+    /// to "The operation couldn't be completed. (DSHPairing.PairingError error 6.)".
+    public var errorDescription: String? {
+        description
+    }
 
     public var description: String {
         switch self {

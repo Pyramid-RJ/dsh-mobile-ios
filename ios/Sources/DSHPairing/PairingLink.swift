@@ -10,14 +10,26 @@ public struct PairingLink: Equatable, Sendable, CustomStringConvertible {
     public let path: String
     /// Present only when the link carried a pairing token in its fragment.
     public let token: String?
+    /// The gateway CA fingerprint carried as `instance` in the fragment. The
+    /// fetched CA must hash to this value; see docs/04 section 2.
+    public let instanceId: String?
 
-    public init(origin: GatewayOrigin, path: String = PairingLink.pairingPath, token: String? = nil) throws {
+    public init(
+        origin: GatewayOrigin,
+        path: String = PairingLink.pairingPath,
+        token: String? = nil,
+        instanceId: String? = nil
+    ) throws {
         if let token {
             try PairingKey.validate(token: token)
+        }
+        if let instanceId {
+            try PairingKey.validate(instanceId: instanceId)
         }
         self.origin = origin
         self.path = path.hasPrefix("/") ? path : "/" + path
         self.token = token
+        self.instanceId = instanceId
     }
 
     public static let pairingPath = "/mobile-access/pair"
@@ -28,8 +40,11 @@ public struct PairingLink: Equatable, Sendable, CustomStringConvertible {
 
     public var description: String {
         let base = origin.description + path
-        guard let token else { return base }
-        return base + "#token=" + token
+        var fields: [String] = []
+        if let instanceId { fields.append("instance=" + instanceId) }
+        if let token { fields.append("token=" + token) }
+        guard !fields.isEmpty else { return base }
+        return base + "#" + fields.joined(separator: "&")
     }
 
     public static func parse(_ raw: String) throws -> PairingLink {
@@ -48,17 +63,26 @@ public struct PairingLink: Equatable, Sendable, CustomStringConvertible {
         let origin = try GatewayOrigin(scheme: scheme, host: host, port: components.port)
 
         var token: String?
+        var instanceId: String?
         if let fragment = components.fragment, !fragment.isEmpty {
             for field in fragment.split(separator: "&") {
                 let pair = field.split(separator: "=", maxSplits: 1, omittingEmptySubsequences: false)
-                guard pair.count == 2, pair[0] == "token" else { continue }
+                guard pair.count == 2 else { continue }
                 let value = String(pair[1])
-                try PairingKey.validate(token: value)
-                token = value
+                switch pair[0] {
+                case "token":
+                    try PairingKey.validate(token: value)
+                    token = value
+                case "instance":
+                    try PairingKey.validate(instanceId: value)
+                    instanceId = value
+                default:
+                    continue
+                }
             }
         }
 
         let path = components.path.isEmpty ? "/" : components.path
-        return try PairingLink(origin: origin, path: path, token: token)
+        return try PairingLink(origin: origin, path: path, token: token, instanceId: instanceId)
     }
 }
