@@ -1,0 +1,30 @@
+# macOS
+.DS_Store
+
+# local helper binaries (actionlint etc.)
+tools-bin/
+
+# Build output (CI uploads artifacts instead of committing them)
+build/
+DerivedData/
+*.xcarchive
+*.ipa
+*.dSYM
+*.dSYM.zip
+*.xcresult
+xcodebuild.log
+
+# Xcode user state
+xcuserdata/
+*.xcuserstate
+*.xcscmblueprint
+*.xccheckout
+project.xcworkspace/xcshareddata/IDEWorkspaceChecks.plist
+
+# XcodeGen output: ios/DSHMobile.xcodeproj is generated from ios/project.yml
+ios/*.xcodeproj
+
+# SwiftPM
+ios/.build/
+.build/
+.swiftpm/

@@ -1,0 +1,244 @@
+name: iOS CI
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "ios/**"
+      - ".github/workflows/ios-ci.yml"
+      - ".github/actions/**"
+  pull_request:
+    paths:
+      - "ios/**"
+      - ".github/workflows/ios-ci.yml"
+      - ".github/actions/**"
+  workflow_dispatch:
+    inputs:
+      xcode-version:
+        description: "Xcode version to use. Empty = repository variable IOS_XCODE_VERSION, then 16.4"
+        required: false
+        default: ""
+      device-build:
+        description: "Run the unsigned archive build"
+        type: boolean
+        default: true
+
+concurrency:
+  group: ios-ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+env:
+  HOMEBREW_NO_AUTO_UPDATE: "1"
+  HOMEBREW_NO_INSTALL_CLEANUP: "1"
+  XCODE_VERSION: ${{ inputs['xcode-version'] || vars.IOS_XCODE_VERSION || '16.4' }}
+
+jobs:
+  detect:
+    name: Detect iOS project
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      project: ${{ steps.scan.outputs.project }}
+      package: ${{ steps.scan.outputs.package }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Scan ios/
+        id: scan
+        shell: bash
+        run: |
+          set -euo pipefail
+          shopt -s nullglob
+
+          containers=()
+          for path in ios/*.xcworkspace ios/*.xcodeproj; do
+            containers+=("$path")
+          done
+
+          if [[ ${#containers[@]} -gt 0 || -f ios/project.yml ]]; then
+            echo "project=true" >> "$GITHUB_OUTPUT"
+            echo "Found iOS build container(s): ${containers[*]:-ios/project.yml (XcodeGen)}"
+          else
+            echo "project=false" >> "$GITHUB_OUTPUT"
+            echo "::notice::ios/ has no .xcworkspace, .xcodeproj or project.yml yet, so the archive build is skipped. The toolchain job still validates the macOS runner."
+          fi
+
+          if [[ -f ios/Package.swift ]]; then
+            echo "package=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "package=false" >> "$GITHUB_OUTPUT"
+          fi
+
+  toolchain:
+    name: macOS toolchain
+    runs-on: ${{ vars.IOS_RUNNER || 'macos-15' }}
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/ios-env
+        with:
+          xcode-version: ${{ env.XCODE_VERSION }}
+      - name: Environment report
+        shell: bash
+        run: |
+          set -euo pipefail
+          {
+            echo "### iOS toolchain"
+            echo ""
+            echo "\`\`\`text"
+            xcodebuild -version
+            swift --version
+            echo "--- SDKs ---"
+            xcodebuild -showsdks
+            echo "\`\`\`"
+          } >> "$GITHUB_STEP_SUMMARY"
+          echo "Simulator runtimes:"
+          xcrun simctl list runtimes | sed -n '1,10p' || true
+          echo "Disk:"
+          df -h / | tail -n 1
+
+  spm-tests:
+    name: Swift package tests
+    needs: detect
+    if: needs.detect.outputs.package == 'true'
+    runs-on: ${{ vars.IOS_RUNNER || 'macos-15' }}
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/ios-env
+        with:
+          xcode-version: ${{ env.XCODE_VERSION }}
+          cache-prefix: ios-spm
+      - name: swift test
+        working-directory: ios
+        run: swift test --parallel
+
+  build:
+    name: Unsigned .ipa
+    needs: detect
+    if: needs.detect.outputs.project == 'true' && (github.event_name != 'workflow_dispatch' || inputs['device-build'])
+    runs-on: ${{ vars.IOS_RUNNER || 'macos-15' }}
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: ./.github/actions/ios-env
+        with:
+          xcode-version: ${{ env.XCODE_VERSION }}
+
+      - name: Install XcodeGen if the project is generated
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ -f ios/project.yml ]] && ! command -v xcodegen >/dev/null 2>&1; then
+            brew install xcodegen
+          fi
+
+      - name: SwiftLint (optional)
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ -f ios/.swiftlint.yml || -f .swiftlint.yml ]]; then
+            command -v swiftlint >/dev/null 2>&1 || brew install swiftlint
+            swiftlint --strict --quiet
+          else
+            echo "::notice::No SwiftLint configuration found; skipping lint."
+          fi
+
+      - name: Build unsigned .ipa
+        env:
+          BUILD_NUMBER: ${{ github.run_number }}
+          MARKETING_VERSION: ${{ vars.IOS_MARKETING_VERSION }}
+          COMMIT: ${{ github.sha }}
+          REPOSITORY: ${{ github.repository }}
+        run: ./ios/scripts/build-unsigned-ipa.sh
+
+      - name: Verify .ipa
+        run: ./ios/scripts/verify-ipa.sh build/DSHMobile-unsigned.ipa
+
+      - name: Checksums
+        shell: bash
+        run: |
+          set -euo pipefail
+          shasum -a 256 build/DSHMobile-unsigned.ipa > build/SHA256SUMS
+          cat build/SHA256SUMS
+
+      - name: Upload .ipa
+        uses: actions/upload-artifact@v4
+        with:
+          name: ios-unsigned-ipa
+          path: |
+            build/DSHMobile-unsigned.ipa
+            build/SHA256SUMS
+            build/release.json
+          retention-days: 14
+          if-no-files-found: error
+
+      - name: Package the archive
+        shell: bash
+        run: |
+          set -euo pipefail
+          # upload-artifact does not preserve the symlinks inside an .xcarchive,
+          # so archive it with ditto first and upload the zip.
+          if [[ -d build/DSHMobile.xcarchive ]]; then
+            ditto -c -k --sequesterRsrc --keepParent build/DSHMobile.xcarchive build/DSHMobile.xcarchive.zip
+          fi
+
+      - name: Upload archive and dSYMs
+        uses: actions/upload-artifact@v4
+        with:
+          name: ios-unsigned-archive
+          path: |
+            build/DSHMobile.xcarchive.zip
+            build/DSHMobile.dSYM.zip
+          retention-days: 14
+          if-no-files-found: warn
+
+      - name: Upload xcodebuild log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: xcodebuild-log
+          path: build/xcodebuild.log
+          retention-days: 7
+          if-no-files-found: ignore
+
+      - name: Job summary
+        if: always()
+        shell: bash
+        run: |
+          set -euo pipefail
+          {
+            echo "### Unsigned iOS build"
+            echo ""
+            echo "| item | value |"
+            echo "| --- | --- |"
+            echo "| Xcode | ${{ env.XCODE_VERSION }} (requested) |"
+            echo "| Runner | ${{ vars.IOS_RUNNER || 'macos-15' }} |"
+            echo "| Commit | \`${{ github.sha }}\` |"
+            echo "| Build number | ${{ github.run_number }} |"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+  gate:
+    name: CI gate
+    if: always()
+    needs: [detect, toolchain, spm-tests, build]
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Evaluate job results
+        shell: bash
+        env:
+          NEEDS: ${{ toJSON(needs) }}
+        run: |
+          set -euo pipefail
+          echo "$NEEDS" | jq -r 'to_entries[] | "\(.key): \(.value.result)"'
+          if echo "$NEEDS" | jq -e 'to_entries[] | select(.value.result == "failure" or .value.result == "cancelled")' > /dev/null; then
+            echo "::error::At least one required job failed or was cancelled."
+            exit 1
+          fi
+          echo "All jobs passed or were skipped as intended."

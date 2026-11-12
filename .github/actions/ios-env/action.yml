@@ -1,0 +1,75 @@
+name: iOS environment
+description: >-
+  Select the Xcode version, print the resolved toolchain, and restore the
+  SwiftPM / DerivedData caches shared by the iOS jobs.
+
+inputs:
+  xcode-version:
+    description: 'Xcode version to select, e.g. "16.4" or "26.6". Empty keeps the image default.'
+    required: false
+    default: ""
+  cache-prefix:
+    description: Prefix of the actions/cache key.
+    required: false
+    default: ios-env
+
+outputs:
+  version:
+    description: Selected Xcode version as printed by "xcodebuild -version".
+    value: ${{ steps.select.outputs.version }}
+
+runs:
+  using: composite
+  steps:
+    - name: Select Xcode
+      id: select
+      shell: bash
+      env:
+        REQUESTED: ${{ inputs['xcode-version'] }}
+      run: |
+        set -euo pipefail
+
+        if [[ -z "$REQUESTED" ]]; then
+          echo "::notice::No Xcode pinned for this run; keeping the runner image default."
+        else
+          candidate="/Applications/Xcode_$REQUESTED.app"
+          if [[ ! -d "$candidate" ]]; then
+            candidate="/Applications/Xcode_$REQUESTED.0.app"
+          fi
+          if [[ ! -d "$candidate" ]]; then
+            echo "::error::Xcode $REQUESTED is not installed on this runner image."
+            echo "Installed Xcodes:"
+            ls -d /Applications/Xcode*.app || true
+            exit 1
+          fi
+          sudo xcode-select --switch "$candidate"
+          echo "::notice::Selected $candidate"
+        fi
+
+        version="$(xcodebuild -version | head -n 1 | awk '{print $2}')"
+        echo "version=$version" >> "$GITHUB_OUTPUT"
+        echo "DEVELOPER_DIR=$(xcode-select -p)" >> "$GITHUB_ENV"
+
+    - name: Show toolchain
+      shell: bash
+      run: |
+        set -euo pipefail
+        echo "== Xcode =="
+        xcodebuild -version
+        echo "== Swift =="
+        swift --version
+        echo "== Developer directory =="
+        xcode-select -p
+        echo "== iOS SDKs =="
+        xcodebuild -showsdks | grep -E 'iOS|Simulator' || true
+
+    - name: Restore caches
+      uses: actions/cache@v4
+      with:
+        path: |
+          ios/.build
+          ~/Library/Caches/org.swift.swiftpm
+          ~/.swiftpm
+        key: ${{ inputs['cache-prefix'] }}-${{ runner.os }}-${{ steps.select.outputs.version }}-${{ hashFiles('ios/Package.resolved', 'ios/**/*.swift', 'ios/**/*.pbxproj', 'ios/**/*.yml', 'ios/project.yml') }}
+        restore-keys: |
+          ${{ inputs['cache-prefix'] }}-${{ runner.os }}-${{ steps.select.outputs.version }}-

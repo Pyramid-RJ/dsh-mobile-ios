@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<!--
+  Deliberately empty. Everything a free Apple ID cannot sign (aps-environment,
+  app groups, iCloud, associated domains, multicast) must stay out of this file:
+  see docs/05-build-and-signing.md section 3.2. get-task-allow is injected by the
+  development provisioning profile, so it does not belong here either.
+-->
+<dict/>
+</plist>

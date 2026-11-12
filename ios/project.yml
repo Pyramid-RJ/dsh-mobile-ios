@@ -1,0 +1,55 @@
+name: DSHMobile
+
+options:
+  bundleIdPrefix: io.example
+  createIntermediateGroups: true
+  deploymentTarget:
+    iOS: "17.0"
+
+packages:
+  DSHCore:
+    path: .
+
+settings:
+  base:
+    SWIFT_VERSION: "5.0"
+    CODE_SIGN_STYLE: Automatic
+    IPHONEOS_DEPLOYMENT_TARGET: "17.0"
+
+targets:
+  DSHMobile:
+    type: application
+    platform: iOS
+    sources:
+      - path: App
+        excludes:
+          - Info.plist
+          - DSHMobile.entitlements
+    dependencies:
+      - package: DSHCore
+        product: DSHPairing
+      - package: DSHCore
+        product: DSHTrust
+    settings:
+      base:
+        PRODUCT_NAME: DSHMobile
+        PRODUCT_BUNDLE_IDENTIFIER: io.example.dshmobile.ios
+        INFOPLIST_FILE: App/Info.plist
+        CODE_SIGN_ENTITLEMENTS: App/DSHMobile.entitlements
+        GENERATE_INFOPLIST_FILE: NO
+        CURRENT_PROJECT_VERSION: 1
+        MARKETING_VERSION: "0.1.0"
+        TARGETED_DEVICE_FAMILY: "1,2"
+        SUPPORTS_MACCATALYST: NO
+        SUPPORTS_MAC_DESIGNED_FOR_IPHONE_IPAD: NO
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+
+schemes:
+  DSHMobile:
+    build:
+      targets:
+        DSHMobile: all
+    run:
+      config: Debug
+    archive:
+      config: Release

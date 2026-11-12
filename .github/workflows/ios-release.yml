@@ -1,0 +1,186 @@
+name: iOS Release
+
+on:
+  push:
+    tags:
+      - "ios-v*"
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Marketing version, e.g. 0.2.0. Empty = taken from the tag name."
+        required: false
+        default: ""
+      xcode-version:
+        description: "Xcode version. Empty = repository variable IOS_XCODE_VERSION, then 16.4"
+        required: false
+        default: ""
+
+permissions:
+  contents: write
+
+concurrency:
+  group: ios-release-${{ github.ref }}
+  cancel-in-progress: false
+
+env:
+  HOMEBREW_NO_AUTO_UPDATE: "1"
+  HOMEBREW_NO_INSTALL_CLEANUP: "1"
+  XCODE_VERSION: ${{ inputs['xcode-version'] || vars.IOS_XCODE_VERSION || '16.4' }}
+
+jobs:
+  meta:
+    name: Resolve version
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      version: ${{ steps.resolve.outputs.version }}
+    steps:
+      - name: Resolve marketing version
+        id: resolve
+        shell: bash
+        env:
+          INPUT_VERSION: ${{ inputs.version }}
+          REF_NAME: ${{ github.ref_name }}
+        run: |
+          set -euo pipefail
+          version="$INPUT_VERSION"
+          if [[ -z "$version" ]]; then
+            version="${REF_NAME#ios-v}"
+          fi
+          if [[ ! "$version" =~ ^[0-9]+[.][0-9]+([.][0-9]+)?$ ]]; then
+            echo "::error::Invalid marketing version '$version'. Use something like 0.2.0 or tag the commit as ios-v0.2.0."
+            exit 1
+          fi
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          echo "::notice::Publishing iOS $version (build ${{ github.run_number }})"
+
+  build:
+    name: Unsigned .ipa
+    needs: meta
+    runs-on: ${{ vars.IOS_RUNNER || 'macos-15' }}
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: ./.github/actions/ios-env
+        with:
+          xcode-version: ${{ env.XCODE_VERSION }}
+
+      - name: Install XcodeGen if the project is generated
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ -f ios/project.yml ]] && ! command -v xcodegen >/dev/null 2>&1; then
+            brew install xcodegen
+          fi
+
+      - name: Build unsigned .ipa
+        env:
+          BUILD_NUMBER: ${{ github.run_number }}
+          MARKETING_VERSION: ${{ needs.meta.outputs.version }}
+          COMMIT: ${{ github.sha }}
+          REPOSITORY: ${{ github.repository }}
+        run: ./ios/scripts/build-unsigned-ipa.sh
+
+      - name: Verify .ipa
+        run: ./ios/scripts/verify-ipa.sh build/DSHMobile-unsigned.ipa
+
+      - name: Name artifacts after the version
+        shell: bash
+        env:
+          VERSION: ${{ needs.meta.outputs.version }}
+        run: |
+          set -euo pipefail
+          mv build/DSHMobile-unsigned.ipa "build/DSHMobile-${VERSION}-unsigned.ipa"
+          ( cd build && sha256sum ./*.ipa > SHA256SUMS && cat SHA256SUMS )
+
+      - name: Upload release artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ios-release-${{ needs.meta.outputs.version }}
+          path: |
+            build/*.ipa
+            build/SHA256SUMS
+            build/release.json
+            build/*.dSYM.zip
+          retention-days: 30
+          if-no-files-found: error
+
+      - name: Upload release log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ios-release-log
+          path: build/xcodebuild.log
+          retention-days: 7
+          if-no-files-found: ignore
+
+  publish:
+    name: Publish GitHub Release
+    needs: [meta, build]
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Download build
+        uses: actions/download-artifact@v4
+        with:
+          name: ios-release-${{ needs.meta.outputs.version }}
+          path: dist
+
+      - name: Re-sign the checksums locally
+        shell: bash
+        working-directory: dist
+        run: |
+          set -euo pipefail
+          sha256sum ./*.ipa > SHA256SUMS
+          cat SHA256SUMS
+
+      - name: Create or update the release
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          VERSION: ${{ needs.meta.outputs.version }}
+          BUILD_NUMBER: ${{ github.run_number }}
+          COMMIT: ${{ github.sha }}
+          REPOSITORY: ${{ github.repository }}
+          TAG: ${{ github.ref_type == 'tag' && github.ref_name || format('ios-v{0}', needs.meta.outputs.version) }}
+        run: |
+          set -euo pipefail
+
+          notes="$(mktemp)"
+          {
+            echo "## Unsigned iOS build $VERSION (build $BUILD_NUMBER)"
+            echo
+            echo "- repository: $REPOSITORY"
+            echo "- commit: ${COMMIT:0:12}"
+            echo "- Xcode: ${{ env.XCODE_VERSION }}"
+            echo "- signing: none - re-sign locally with your own Apple ID (Xcode / AltStore / Sideloadly)"
+            echo
+            echo "### How to install"
+            echo
+            echo "1. Download the .ipa asset."
+            echo "2. Sign and install it with Xcode, AltStore or Sideloadly using your own Apple ID."
+            echo "3. Trust the developer certificate under Settings > General > VPN & Device Management."
+            echo
+            echo "> A free Apple ID signature expires after 7 days. Install over the"
+            echo "> existing app to keep the pairing data; do not delete the app first."
+            echo
+            echo "The .xcarchive is not attached; fetch it from the workflow run artifacts."
+          } > "$notes"
+
+          shopt -s nullglob
+          assets=(dist/*.ipa dist/SHA256SUMS dist/release.json)
+          assets+=(dist/*.dSYM.zip)
+          shopt -u nullglob
+
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            echo "Release $TAG exists; uploading assets."
+            gh release upload "$TAG" "${assets[@]}" --clobber
+          else
+            gh release create "$TAG" "${assets[@]}" \
+              --title "iOS $VERSION (unsigned)" \
+              --notes-file "$notes"
+          fi
+          echo "::notice::Published $TAG"
