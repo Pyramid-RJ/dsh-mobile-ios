@@ -115,6 +115,8 @@ App 内起一个 `127.0.0.1` 的 HTTPS→HTTPS 代理，WebView 加载 `https://
 | **S-3** | `getUserMedia`（语音输入）在 WKWebView 中可用且能拿到麦克风 | 页面录音入口 | 声明不支持语音，能力表里不出现相关分支 |
 | **S-4** | `NWBrowser` 能发现 `_dsh-mobile._tcp.` 并读到 TXT 记录，局域网权限流程正常 | 电脑开局域网访问，iOS 扫描 | 只保留「手输 `https://IP:端口`」与「粘贴配对链接」，不做自动发现 |
 
+**S-1 结论（2026-11-13，真机实测）：通过。** iPhone（iOS 27.0.1）上用 `https://<局域网IP>:3443` 加载自签网关：`challenge #1 NSURLAuthenticationMethodServerTrust` 正常触发，固定私有 CA 的 `useCredential` 被接受，`didFinish` 到达；取回的 CA 指纹与配对链接里的 `instance` 一致。仍未验证 iOS 17.0（声明的最低版本）与 iPad。
+
 S-1 是唯一会改变整体架构的假设，其余只影响功能取舍。
 
 ## 6 成本与工作量（估算）

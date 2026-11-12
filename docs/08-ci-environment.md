@@ -188,9 +188,14 @@ git push origin ios-v0.1.0
 3. macOS runner 上 `xcodebuild -version` 偶发崩溃（exit 134），复合 action 现在带 3 次重试。
 4. 同一分支并发触发会互相取消（`cancel-in-progress: true`），验证时只保留一次触发。
 
+**追加验证（2026-11-13）**：
+
+- **S-1 通过**：真机 iPhone（iOS 27.0.1）上 `challenge #1 NSURLAuthenticationMethodServerTrust` → 固定 CA 的 `useCredential` → `didFinish` 全链路成立，CA 指纹与配对链接的 `instance` 一致。
+- **发布链路通过**：推 `ios-v0.1.0` 标签后 `meta` / `build` / `publish` 三个 job 全绿；Release 附带 ipa、dSYM、`SHA256SUMS`、`release.json`、`source.json`；AltStore 源 `releases/latest/download/source.json` 可下载，`downloadURL` HEAD 200。
+
 **仍未验证**：
 
-- S-1（真机上的固定私有 CA）——需要真机，见 [ios/README](../ios/README.md)；
-- `ios-release.yml` 的发布路径（仅标签/手动触发，尚未跑过一次）；
-- 真机安装与 7 天重签（需要 Apple ID 与设备）。
+- iOS 17.0（文档声明的最低版本）与 iPad 上的 S-1 行为；
+- 真机安装与 7 天重签（需要 Apple ID 与设备）；
+- `iroh` 与局域网发现（S-4），属于 P5 范围。
 

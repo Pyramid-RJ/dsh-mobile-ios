@@ -15,7 +15,7 @@ P0 Spike ──► P1 配对与信任 ──► P2 设备与持久化 ──► 
 | 任务 | 产出 | 退出条件 |
 | --- | --- | --- |
 | 工程骨架 + CI 跑通空壳 | `ios/` 目录（已提交）、Actions 绿（未实测） | 能在 macOS runner 上 `xcodebuild` 出未签名 archive |
-| S-1：自签 CA 加载 | 结论 + 最小 demo（[`ios/App/Spike/S1ProbeView.swift`](../ios/App/Spike/S1ProbeView.swift)） | 明确"WKWebView 能否用固定 CA 加载自签页面" |
+| S-1：自签 CA 加载 | **✅ 2026-11-13 真机通过**（iPhone，iOS 27.0.1）+ 最小 demo（[`ios/App/Spike/S1ProbeView.swift`](../ios/App/Spike/S1ProbeView.swift)） | 明确"WKWebView 能否用固定 CA 加载自签页面" |
 | S-2：`<input type=file>` | 结论 | 能选文件并回填 |
 | S-3：`getUserMedia` | 结论 | 能录音 |
 | S-4：`NWBrowser` 发现 | 结论 | 能发现 `_dsh-mobile._tcp.` 并读 TXT |
@@ -97,6 +97,7 @@ P0 Spike ──► P1 配对与信任 ──► P2 设备与持久化 ──► 
 - **缓解**：P0 阶段先验证（S-1）；同时准备架构 A（纯浏览器壳）。
 - **回退**：架构 A + 引导用户使用 Safari PWA（上游已完整支持）。
 - **观察点**：不同 iOS 版本行为可能不同，需在最低版本（17.0）上验证。
+- **现状（2026-11-13）**：真机 iPhone（iOS 27.0.1）上 `didReceive challenge` 正常触发，固定 CA 的 `useCredential` 被接受、页面加载完成；CA 指纹与配对链接的 `instance` 一致。风险降级为"最低版本与 iPad 待复核"。
 
 ### R-2 ｜ 免费签名 7 天过期导致数据丢失（影响：高，可能性：中）
 
