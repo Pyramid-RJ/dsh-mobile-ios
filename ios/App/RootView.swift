@@ -10,6 +10,7 @@ struct RootView: View {
     @State private var result = "粘贴配对链接或配对键后点解析。"
     @State private var parsedGateway: String?
     @State private var parsedInstance: String?
+    @StateObject private var pairing = PairingCoordinator()
 
     private var appVersion: String {
         let info = Bundle.main.infoDictionary
@@ -46,6 +47,28 @@ struct RootView: View {
                     Text(result)
                         .font(.footnote)
                         .foregroundStyle(.secondary)
+                }
+
+                Section("配对（P1）") {
+                    Button("配对并打开") {
+                        Task { await pairing.pair(input: input) }
+                    }
+                    .disabled(input.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+
+                    Text(pairing.status)
+                        .font(.footnote)
+
+                    ForEach(pairing.log, id: \.self) { line in
+                        Text(line)
+                            .font(.caption2.monospaced())
+                            .foregroundStyle(.secondary)
+                    }
+
+                    if let session = pairing.session {
+                        NavigationLink("打开 DSH 页面") {
+                            GatewayWebViewScreen(session: session)
+                        }
+                    }
                 }
 
                 Section("P0 探针") {

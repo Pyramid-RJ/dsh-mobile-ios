@@ -30,6 +30,10 @@ targets:
         product: DSHPairing
       - package: DSHCore
         product: DSHTrust
+      - package: DSHCore
+        product: DSHTransport
+      - package: DSHCore
+        product: DSHDeviceStore
     settings:
       base:
         PRODUCT_NAME: DSHMobile
