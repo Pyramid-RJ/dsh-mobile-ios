@@ -23,7 +23,11 @@ struct StrictJSON {
     }
 
     func requireKeys(required: Set<String>, optional: Set<String> = []) throws {
-        guard keys == required.union(optional) else {
+        // Every required key must be present, and nothing outside
+        // required+optional may appear. Comparing against the union would demand
+        // the optional keys too, which is not what the contract says.
+        let allowed = required.union(optional)
+        guard required.isSubset(of: keys), keys.isSubset(of: allowed) else {
             throw MobileAccessFailure.invalidResponse
         }
     }
