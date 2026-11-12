@@ -149,7 +149,7 @@ final class ClientRequestTests: XCTestCase {
         XCTAssertEqual(decoded["label"], "DeepSeek Harness iOS")
     }
 
-    func testRenewSendsBearerAndValidatesBody() async throws {
+    func testRenewSendsDeviceTokenInBody() async throws {
         let transport = FakeTransport()
         transport.status = 200
         transport.body = data([
@@ -164,7 +164,30 @@ final class ClientRequestTests: XCTestCase {
 
         XCTAssertEqual(session.sessionToken, token)
         let request = try XCTUnwrap(transport.requests.first)
-        XCTAssertEqual(request.value(forHTTPHeaderField: "Authorization"), "Bearer " + token)
+        // Verified against upstream NativeAuthClient.kt: the credential is a
+        // body field, not an Authorization header.
+        XCTAssertNil(request.value(forHTTPHeaderField: "Authorization"))
+        let body = try XCTUnwrap(request.httpBody)
+        let decoded = try XCTUnwrap(try JSONSerialization.jsonObject(with: body) as? [String: String])
+        XCTAssertEqual(decoded["deviceToken"], token)
+    }
+
+    func testRejectsUnexpectedInstance() async throws {
+        let transport = FakeTransport()
+        transport.status = 201
+        transport.body = data(pairPayload())
+        let client = MobileAccessClient(
+            origin: try GatewayOrigin(host: "192.168.1.5", port: 3443),
+            transport: transport,
+            expectedInstanceId: String(repeating: "d", count: 64)
+        )
+
+        do {
+            _ = try await client.pair(token: token)
+            XCTFail("expected a failure")
+        } catch let failure as MobileAccessFailure {
+            XCTAssertEqual(failure, .invalidResponse)
+        }
     }
 
     func testErrorBodyDrivesFailure() async throws {

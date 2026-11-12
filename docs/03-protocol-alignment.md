@@ -34,6 +34,16 @@
 
 `native-pair` 请求体：`{token: string, label?: string}`；Android 传的 label 是 `"DeepSeek Harness Android"`，iOS 应传 `"DeepSeek Harness iOS"`（会显示在电脑端设备列表）。
 
+### 2.1 三个 POST 的认证载体（2026-11-13 对照上游 `NativeAuthClient.kt` 确认）
+
+```
+native-pair  : {"token": "<43>",        "label": "DeepSeek Harness iOS"}
+native-renew : {"deviceToken": "<43>"}
+native-probe : {"deviceToken": "<43>"}
+```
+
+**不使用 `Authorization` 头**——凭据一律走 JSON body。iOS 端实现见 `ios/Sources/DSHTransport/MobileAccessClient.swift`。响应里的 `instanceId` 必须等于配对时预期的实例，否则判 `invalid_response`（上游同样显式校验）。
+
 ## 3 响应结构（严格键集合）
 
 ### 3.1 `native-pair`（201）
