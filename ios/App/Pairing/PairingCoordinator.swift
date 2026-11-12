@@ -10,6 +10,8 @@ struct BrowserSession {
     let origin: GatewayOrigin
     let evaluator: PinnedTrustEvaluator
     let cookies: [PlannedCookie]
+    /// Needed by the bridge's auth.renew handler; nil for the S-1 probe.
+    let deviceToken: String?
 }
 
 /// P1 happy path: link -> CA -> verify fingerprint -> pair -> renew -> store -> load.
@@ -94,7 +96,8 @@ final class PairingCoordinator: ObservableObject {
             session = BrowserSession(
                 origin: link.origin,
                 evaluator: evaluator,
-                cookies: SessionCookiePlan.cookies(for: link.origin, session: renewed)
+                cookies: SessionCookiePlan.cookies(for: link.origin, session: renewed),
+                deviceToken: credential.deviceToken
             )
             status = "已就绪，点「打开 DSH 页面」"
         } catch {

@@ -69,7 +69,8 @@ final class AppModel: ObservableObject {
             session = BrowserSession(
                 origin: origin,
                 evaluator: evaluator,
-                cookies: SessionCookiePlan.cookies(for: origin, session: renewed)
+                cookies: SessionCookiePlan.cookies(for: origin, session: renewed),
+                deviceToken: record.deviceToken
             )
             status = "已连接 " + record.displayName
         } catch {

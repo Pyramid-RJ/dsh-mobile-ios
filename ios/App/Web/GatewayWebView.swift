@@ -1,6 +1,7 @@
 import SwiftUI
 import WebKit
 import DSHPairing
+import DSHBridge
 import DSHTrust
 
 struct GatewayWebViewScreen: View {
@@ -13,20 +14,32 @@ struct GatewayWebViewScreen: View {
     }
 }
 
-/// Loads the gateway with the pinned CA, after the session cookies are in place.
+/// Loads the gateway with the pinned CA, installs the session cookies first, and
+/// injects the bridge adapter at document start.
 struct GatewayWebView: UIViewRepresentable {
     let session: BrowserSession
 
     func makeCoordinator() -> Coordinator {
-        Coordinator(evaluator: session.evaluator)
+        Coordinator(session: session)
     }
 
     func makeUIView(context: Context) -> WKWebView {
         let configuration = WKWebViewConfiguration()
         configuration.websiteDataStore = .default()
 
+        let host = context.coordinator.bridgeHost
+        configuration.userContentController.add(host, name: BridgeScript.handlerName)
+        configuration.userContentController.addUserScript(
+            WKUserScript(
+                source: BridgeScript.make(capabilities: context.coordinator.capabilities),
+                injectionTime: .atDocumentStart,
+                forMainFrameOnly: true
+            )
+        )
+
         let webView = WKWebView(frame: .zero, configuration: configuration)
         webView.navigationDelegate = context.coordinator
+        host.webView = webView
 
         guard let url = session.origin.url(path: "/") else { return webView }
         let cookies = session.cookies
@@ -42,10 +55,19 @@ struct GatewayWebView: UIViewRepresentable {
     func updateUIView(_ webView: WKWebView, context: Context) {}
 
     final class Coordinator: NSObject, WKNavigationDelegate {
+        let bridgeHost: BridgeHost
+        /// Only what a handler can actually serve (docs/03 section 6.2).
+        let capabilities = BridgeCapabilities(implemented: [.authRenew])
+
         private let evaluator: PinnedTrustEvaluator
 
-        init(evaluator: PinnedTrustEvaluator) {
-            self.evaluator = evaluator
+        init(session: BrowserSession) {
+            evaluator = session.evaluator
+            bridgeHost = BridgeHost(
+                origin: session.origin,
+                evaluator: session.evaluator,
+                deviceToken: session.deviceToken
+            )
             super.init()
         }
 
@@ -74,10 +96,11 @@ struct GatewayWebView: UIViewRepresentable {
             didFailProvisionalNavigation navigation: WKNavigation!,
             withError error: Error
         ) {
-            // Left visible in the Xcode console; the page itself reports its state.
-            let message = "gateway load failed: " + error.localizedDescription
-                + " (" + String((error as NSError).code) + ")"
-            NSLog("%@", message)
+            NSLog("%@", "gateway load failed: " + error.localizedDescription + " (" + String((error as NSError).code) + ")")
+        }
+
+        func webViewWebContentProcessDidTerminate(_ webView: WKWebView) {
+            NSLog("%@", "web content process terminated")
         }
     }
 }
