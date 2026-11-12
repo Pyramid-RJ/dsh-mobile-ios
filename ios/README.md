@@ -77,7 +77,7 @@ didFinish 页面加载完成
 | 项 | 阶段 | 状态 |
 | --- | --- | --- |
 | S-1：固定私有 CA 的可行性 | P0 | ✅ 2026-11-13 真机通过（iPhone，iOS 27.0.1） |
-| native-pair / renew / probe、CA 固定、Cookie 注入 | P1 | 代码就绪，待真机验证配对闭环 |
+| native-pair / renew / probe、CA 固定、Cookie 注入、启动自动恢复（US-4） | P1 | 代码就绪，待真机验证配对与恢复 |
 | Keychain 设备表、设备列表、可达性 | P2 | 未开始 |
 | 页面桥、返回键、缩放 | P3 | 未开始 |
 
