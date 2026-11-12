@@ -26,6 +26,16 @@
 | [docs/06-testing.md](docs/06-testing.md) | 测试分层、契约测试移植、P0/P1/负面用例、真机矩阵、证据记录 |
 | [docs/07-roadmap-and-risks.md](docs/07-roadmap-and-risks.md) | 阶段划分、里程碑、9 条风险登记、待决问题、37 人日估算 |
 
+## 安装（AltStore）
+
+在 AltStore 的 **Sources → +** 里添加下面这个地址，然后在源里安装（安装的是未签名包，AltStore 会用你自己的 Apple ID 重签）：
+
+```
+https://github.com/Pyramid-RJ/dsh-mobile-ios/releases/latest/download/source.json
+```
+
+源的生成与更新机制见 [altstore/README.md](altstore/README.md)。
+
 ## 三个必须先知道的结论
 
 1. **协议层几乎零成本**：电脑端不需要为 iOS 做任何改动。端点、配对键格式、响应键集合、错误码映射、页面桥契约都可以逐字节对齐。
