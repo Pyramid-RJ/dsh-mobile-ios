@@ -50,6 +50,23 @@ S-1 决定架构是否成立：**WKWebView 能不能用固定私有 CA 接受的
 
 探针会先用**有界的引导窗口**（只对 `/mobile-access/ca.cer`）取 CA，然后立刻换成固定 CA 的评估器。这条引导例外是 docs/04 §2.3 明确允许的，不要扩散到其它请求。
 
+### 实测记录（2026-11-13）
+
+iPhone，iOS 27.0.1，局域网 `https://172.20.10.4:3443`：
+
+```text
+Origin: https://172.20.10.4:3443
+CA subject: DeepSeek Harness Mobile CA
+CA sha256: 02b77e85a57d65d114e6a05d575a12f99e07d820cacd14ede1999e461a0953b5
+instance 指纹一致
+challenge #1 NSURLAuthenticationMethodServerTrust host=172.20.10.4
+  → 固定 CA 通过，提交凭据
+didStartProvisionalNavigation
+didFinish 页面加载完成
+```
+
+网关随后返回「此设备已不在配对列表中」——这是预期结果，配对属于 P1。结论：架构 B（原生壳 + 固定私有 CA）成立，不需要回退纯浏览器壳。
+
 ## 必须改的两处
 
 1. **Bundle ID**：`io.example.dshmobile.ios` 是占位值（docs/07 Q-1）。第一次装真机前改成你自己的；它决定 App 身份与 Keychain 归属。
