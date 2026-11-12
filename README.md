@@ -1,6 +1,6 @@
 # DSH Mobile iOS — 原生 iOS 客户端（规划）
 
-> **状态：文档 + P0 工程骨架。** 这是一个为 [`saya-ch/dsh-mobile`](https://github.com/saya-ch/dsh-mobile) 规划**可侧载 iOS 客户端（`.ipa`）**的技术方案仓库。`ios/` 里已有可构建的 Xcode 工程骨架（XcodeGen + SwiftUI 空壳 + 纯逻辑包 `DSHPairing`）与 GitHub Actions 构建链，但**尚未在任何 macOS 或真机上实测**，功能实现从 P1 开始。
+> **状态：文档 + P0 工程骨架。** 这是一个为 [`saya-ch/dsh-mobile`](https://github.com/saya-ch/dsh-mobile) 规划**可侧载 iOS 客户端（`.ipa`）**的技术方案仓库。`ios/` 里已有可构建的 Xcode 工程骨架（XcodeGen + SwiftUI 空壳 + 纯逻辑包 `DSHPairing`）与 GitHub Actions 构建链，GitHub Actions 已在 macOS runner 上成功构建出未签名 `.ipa`（见 [docs/08](docs/08-ci-environment.md) §11）；真机、S-1 与签名仍待验证，功能实现从 P1 开始。
 >
 > 上游项目明确不提供、也不计划提供原生 iOS App（其官方路径是 Safari + 添加到主屏幕的 PWA）。本项目是**社区衍生的独立方向**，不是上游官方发布，也不包含上游源码的修改。
 

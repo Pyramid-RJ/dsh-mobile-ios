@@ -166,9 +166,31 @@ git push origin ios-v0.1.0
 - [07 §6](07-roadmap-and-risks.md) 阶段 0「macOS 上建空工程，跑通 `xcodebuild archive` + CI」——CI 这一半已就绪，剩下的是建工程。
 - 将来换付费账号（TestFlight / Ad Hoc）：在 Release workflow 里加一个 `xcodebuild -exportArchive` job + `ExportOptions.plist`，未签名构建链路不用动。
 
-## 11 未验证范围（如实记录）
+## 11 验证状态（如实记录）
 
-- 工作流**没有在真实仓库执行过**；已验证的只有 YAML 可解析、Shell 可解析、表达式写法正确。
-- 工程骨架已提交，但 `build` / `spm-tests` 的真实行为（XcodeGen 生成的 scheme、产物路径、`Payload` 结构、Swift 能否编译通过）**仍未在 macOS 上实测**。
-- 未验证 Xcode 26 SDK 下的 ATS / 私有 CA 行为，那属于 [04](04-security.md) 的 Spike。
-- 未配置签名、TestFlight、真机测试——都不在 CI 范围内。
+**已在真实仓库跑通**（2026-11-12，`Pyramid-RJ/dsh-mobile-ios`，提交 `a008e14`）：
+
+| 项 | 结果 |
+| --- | --- |
+| 触发 | 推送到 `main` 与手动 dispatch 均能触发 |
+| Job | `detect` / `toolchain` / `spm-tests` / `build` / `gate` 全部 success |
+| Swift | `swift test` 编译 DSHPairing、DSHTrust 并跑完全部测试（`Build complete!`） |
+| 产物 | `DSHMobile-unsigned.ipa` 110,155 B（build 27）、`DSHMobile.xcarchive.zip` 1,616,813 B、dSYM、日志 |
+| 校验 | `verify-ipa.sh` 全过：arm64、无 `_CodeSignature`、无 entitlements、无 `UIBackgroundModes`、无 ATS 放开、四条隐私描述齐全 |
+| 签名 | 无（符合设计） |
+
+实测环境：`macos-15` 镜像 + **Xcode 16.4**，`xcodegen` 由 brew 安装，`xcodebuild archive` 约 100 秒。
+
+踩过并已修复的坑（留作记录）：
+
+1. 表达式里带连字符的输入必须写 `inputs['xcode-version']`；`inputs.xcode-version` 会被判为非法表达式，整个 workflow 直接失效。
+2. 表达式必须以 `}}` 收尾：`${{ ... })` 少一个花括号同样让 workflow 变红。
+3. macOS runner 上 `xcodebuild -version` 偶发崩溃（exit 134），复合 action 现在带 3 次重试。
+4. 同一分支并发触发会互相取消（`cancel-in-progress: true`），验证时只保留一次触发。
+
+**仍未验证**：
+
+- S-1（真机上的固定私有 CA）——需要真机，见 [ios/README](../ios/README.md)；
+- `ios-release.yml` 的发布路径（仅标签/手动触发，尚未跑过一次）；
+- 真机安装与 7 天重签（需要 Apple ID 与设备）。
+
