@@ -1,6 +1,7 @@
 import SwiftUI
 import UIKit
 import DSHPairing
+import DSHDeviceStore
 
 /// Phase P0 screen. It proves the app target builds, links the DSHPairing
 /// package and can parse what the computer prints. Pairing, trust and the web
@@ -11,6 +12,7 @@ struct RootView: View {
     @State private var parsedGateway: String?
     @State private var parsedInstance: String?
     @StateObject private var pairing = PairingCoordinator()
+    @StateObject private var model = AppModel()
 
     private var appVersion: String {
         let info = Bundle.main.infoDictionary
@@ -47,6 +49,35 @@ struct RootView: View {
                     Text(result)
                         .font(.footnote)
                         .foregroundStyle(.secondary)
+                }
+
+                Section("已配对") {
+                    if model.devices.isEmpty {
+                        Text("还没有配对的电脑")
+                            .font(.footnote)
+                            .foregroundStyle(.secondary)
+                    } else {
+                        ForEach(model.devices) { device in
+                            Button(device.displayName) {
+                                Task { await model.connect(device) }
+                            }
+                        }
+                    }
+
+                    Text(model.status)
+                        .font(.footnote)
+
+                    if let session = model.session {
+                        NavigationLink("打开 (session.origin.host)") {
+                            GatewayWebViewScreen(session: session)
+                        }
+                    }
+
+                    if let session = pairing.session {
+                        NavigationLink("打开 \(session.origin.host)（刚配对）") {
+                            GatewayWebViewScreen(session: session)
+                        }
+                    }
                 }
 
                 Section("配对（P1）") {
@@ -88,6 +119,7 @@ struct RootView: View {
                 }
             }
             .navigationTitle("DSH Mobile")
+            .task { await model.restore() }
         }
     }
 
