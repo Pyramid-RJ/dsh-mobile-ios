@@ -1,4 +1,5 @@
 import Foundation
+import DSHBridge
 
 /// The adapter injected at document start, mirroring the Android page contract
 /// (docs/03 section 5.1). Kept as a template so the capability list is generated
