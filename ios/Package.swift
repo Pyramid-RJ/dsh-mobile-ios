@@ -12,6 +12,7 @@ let package = Package(
     products: [
         .library(name: "DSHPairing", targets: ["DSHPairing"]),
         .library(name: "DSHTrust", targets: ["DSHTrust"]),
+        .library(name: "DSHTransport", targets: ["DSHTransport"]),
     ],
     targets: [
         .target(
@@ -27,10 +28,20 @@ let package = Package(
             dependencies: ["DSHPairing"],
             path: "Tests/DSHPairingTests"
         ),
+        .target(
+            name: "DSHTransport",
+            dependencies: ["DSHPairing"],
+            path: "Sources/DSHTransport"
+        ),
         .testTarget(
             name: "DSHTrustTests",
             dependencies: ["DSHTrust"],
             path: "Tests/DSHTrustTests"
+        ),
+        .testTarget(
+            name: "DSHTransportTests",
+            dependencies: ["DSHTransport", "DSHPairing"],
+            path: "Tests/DSHTransportTests"
         ),
     ]
 )
