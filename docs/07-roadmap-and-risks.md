@@ -24,7 +24,7 @@ P0 Spike ──► P1 配对与信任 ──► P2 设备与持久化 ──► 
 
 ### P1 配对与信任（6 人日）
 
-> 进度（2026-11-13）：代码就绪——`DSHTransport`（端点、严格键集合、错误映射、body 凭证）、`DSHDeviceStore`（Keychain 设备表）、Cookie 计划与安装、配对编排与固定 CA 的 WebView 均已合入并通过 CI；退出条件待真机跑通。
+> 进度（2026-11-13）：**真机通过**——iPhone（iOS 27.0.1）上完成 `原生配对 → 固定 CA → Cookie 注入 → 打开 DSH 页面`，页面不再停在「重新配对」。代码侧：`DSHTransport`（端点、严格键集合、错误映射、body 凭证）、`DSHDeviceStore`（Keychain 设备表）、Cookie 计划与安装、配对编排、固定 CA 的 WebView。启动自动恢复（US-4）尚未单独确认。
 
 - `DSHPairing`：配对键、Origin、URL 策略（含契约用例）
 - `DSHTrust`：CA 校验、指纹、`ServerTrustEvaluator`

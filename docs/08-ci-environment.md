@@ -192,6 +192,8 @@ git push origin ios-v0.1.0
 
 - **S-1 通过**：真机 iPhone（iOS 27.0.1）上 `challenge #1 NSURLAuthenticationMethodServerTrust` → 固定 CA 的 `useCredential` → `didFinish` 全链路成立，CA 指纹与配对链接的 `instance` 一致。
 - **发布链路通过**：推 `ios-v0.1.0` 标签后 `meta` / `build` / `publish` 三个 job 全绿；Release 附带 ipa、dSYM、`SHA256SUMS`、`release.json`、`source.json`；AltStore 源 `releases/latest/download/source.json` 可下载，`downloadURL` HEAD 200。
+- **P1 配对闭环通过**：`0.3.0` 在真机（iPhone，iOS 27.0.1）上完成配对并打开 DSH 页面；`0.1.0` → `0.2.0` → `0.3.0` 三次发布都被 AltStore 源正确累积（`versions` 最新在前）。
+- **已知的平台抖动**：release 的 macOS job 出现过三次 `The job was not acquired by Runner of type hosted even after multiple attempts`（排队 15 分钟无机器，任务被回收）；重跑即成功，与构建内容无关。
 
 **仍未验证**：
 
