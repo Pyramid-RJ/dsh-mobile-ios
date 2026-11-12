@@ -80,6 +80,7 @@ jobs:
       - uses: ./.github/actions/ios-env
         with:
           xcode-version: ${{ env.XCODE_VERSION }}
+          cache-prefix: ios-toolchain
       - name: Environment report
         shell: bash
         run: |
@@ -129,6 +130,7 @@ jobs:
       - uses: ./.github/actions/ios-env
         with:
           xcode-version: ${{ env.XCODE_VERSION }}
+          cache-prefix: ios-build
 
       - name: Install XcodeGen if the project is generated
         shell: bash

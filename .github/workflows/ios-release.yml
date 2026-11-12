@@ -67,6 +67,7 @@ jobs:
       - uses: ./.github/actions/ios-env
         with:
           xcode-version: ${{ env.XCODE_VERSION }}
+          cache-prefix: ios-release
 
       - name: Install XcodeGen if the project is generated
         shell: bash

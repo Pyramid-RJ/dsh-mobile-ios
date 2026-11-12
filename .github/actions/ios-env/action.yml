@@ -46,7 +46,21 @@ runs:
           echo "::notice::Selected $candidate"
         fi
 
-        version="$(xcodebuild -version | head -n 1 | awk '{print $2}')"
+        # xcodebuild occasionally aborts on a freshly booted runner (exit 134,
+        # Foundation crash while reading its own plist). Retry before failing.
+        version=""
+        for attempt in 1 2 3; do
+          if version="$(xcodebuild -version 2>/dev/null | head -n 1 | awk '{print $2}')" && [[ -n "$version" ]]; then
+            break
+          fi
+          echo "::warning::xcodebuild -version failed (attempt $attempt of 3); retrying in 5s"
+          sleep 5
+        done
+        if [[ -z "$version" ]]; then
+          echo "::error::xcodebuild -version keeps failing; the runner's Xcode looks broken. Re-run this job."
+          ls -d /Applications/Xcode*.app || true
+          exit 1
+        fi
         echo "version=$version" >> "$GITHUB_OUTPUT"
         echo "DEVELOPER_DIR=$(xcode-select -p)" >> "$GITHUB_ENV"
 
@@ -55,7 +69,7 @@ runs:
       run: |
         set -euo pipefail
         echo "== Xcode =="
-        xcodebuild -version
+        xcodebuild -version || echo "(xcodebuild -version failed here; see the select step)"
         echo "== Swift =="
         swift --version
         echo "== Developer directory =="
