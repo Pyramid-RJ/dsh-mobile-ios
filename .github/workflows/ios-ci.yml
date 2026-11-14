@@ -154,10 +154,62 @@ jobs:
             echo "::notice::No SwiftLint configuration found; skipping lint."
           fi
 
+      - name: Derive the marketing version from the newest ios-v* tag
+        id: version
+        shell: bash
+        env:
+          # An explicit variable still wins: it is the escape hatch for a build
+          # that must not follow the tags.
+          OVERRIDE: ${{ vars.IOS_MARKETING_VERSION }}
+        run: |
+          set -euo pipefail
+
+          if [[ -n "$OVERRIDE" ]]; then
+            echo "::notice::IOS_MARKETING_VERSION=$OVERRIDE overrides the tag-derived version"
+            echo "MARKETING_VERSION=$OVERRIDE" >> "$GITHUB_ENV"
+            echo "### Version: \`$OVERRIDE\` (from IOS_MARKETING_VERSION)" >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+
+          # fetch-depth: 0 above is what makes the tags available here; a shallow
+          # clone has none, and the build would silently fall back to project.yml.
+          tag="$(git describe --tags --abbrev=0 --match 'ios-v*' 2>/dev/null || true)"
+          if [[ -z "$tag" ]]; then
+            echo "::warning::No reachable ios-v* tag; keeping the version from project.yml"
+            echo "### Version: from project.yml (no ios-v* tag reachable)" >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+
+          base="${tag#ios-v}"
+          if [[ ! "$base" =~ ^[0-9]+[.][0-9]+([.][0-9]+)?$ ]]; then
+            echo "::error::Tag $tag does not look like ios-vX.Y.Z"
+            exit 1
+          fi
+
+          IFS=. read -r major minor patch <<< "$base"
+          patch="${patch:-0}"
+
+          if [[ "$(git rev-list -n 1 "$tag")" == "$(git rev-parse HEAD)" ]]; then
+            version="$major.$minor.$patch"
+            echo "::notice::HEAD is $tag; version $version"
+            echo "### Version: \`$version\` (exactly $tag)" >> "$GITHUB_STEP_SUMMARY"
+          else
+            # Ahead of the release: bump the patch so the artifact sorts above it.
+            # CFBundleShortVersionString stays dotted-numeric, which is what
+            # AltStore and the installer expect.
+            ahead="$(git rev-list --count "$tag"..HEAD)"
+            version="$major.$minor.$((patch + 1))"
+            echo "::notice::HEAD is $ahead commit(s) past $tag; version $version (unreleased)"
+            echo "### Version: \`$version\` ($ahead commit(s) past $tag, unreleased)" >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+          echo "MARKETING_VERSION=$version" >> "$GITHUB_ENV"
+
       - name: Build unsigned .ipa
         env:
           BUILD_NUMBER: ${{ github.run_number }}
-          MARKETING_VERSION: ${{ vars.IOS_MARKETING_VERSION }}
+          # MARKETING_VERSION comes from the step above via $GITHUB_ENV; setting it
+          # here would overwrite that with an empty value.
           COMMIT: ${{ github.sha }}
           REPOSITORY: ${{ github.repository }}
         run: ./ios/scripts/build-unsigned-ipa.sh
