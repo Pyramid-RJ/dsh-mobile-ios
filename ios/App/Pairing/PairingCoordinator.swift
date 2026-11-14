@@ -20,6 +20,8 @@ final class PairingCoordinator: ObservableObject {
     @Published private(set) var status = "尚未配对"
     @Published private(set) var log: [String] = []
     @Published private(set) var session: BrowserSession?
+    /// True while a pairing is in flight, so the UI can disable its buttons.
+    @Published private(set) var isPairing = false
 
     private let store = KeychainDeviceRecordStore()
 
@@ -27,6 +29,8 @@ final class PairingCoordinator: ObservableObject {
         log = []
         session = nil
         status = "准备中…"
+        isPairing = true
+        defer { isPairing = false }
 
         do {
             let link = try PairingLink.parse(input)

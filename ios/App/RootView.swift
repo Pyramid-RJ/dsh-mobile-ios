@@ -13,6 +13,7 @@ struct RootView: View {
     @State private var parsedInstance: String?
     @StateObject private var pairing = PairingCoordinator()
     @StateObject private var model = AppModel()
+    @State private var showsScanner = false
 
     private var appVersion: String {
         let info = Bundle.main.infoDictionary
@@ -58,7 +59,16 @@ struct RootView: View {
                     .textInputAutocapitalization(.never)
                     .autocorrectionDisabled()
 
-                    Button("解析") { parse() }
+                    HStack {
+                        Button("解析") { parse() }
+                        Spacer()
+                        Button {
+                            showsScanner = true
+                        } label: {
+                            Label("扫码", systemImage: "qrcode.viewfinder")
+                        }
+                        .disabled(pairing.isPairing)
+                    }
                     Text(result)
                         .font(.footnote)
                         .foregroundStyle(.secondary)
@@ -152,7 +162,27 @@ struct RootView: View {
             }
             .navigationTitle("DSH Mobile")
             .task { await model.restore() }
+            .sheet(isPresented: $showsScanner) {
+                NavigationStack {
+                    QRScannerView { code in
+                        showsScanner = false
+                        acceptScanned(code)
+                    }
+                }
+            }
         }
+    }
+
+    /// A scanned pairing code goes through the same path as a pasted one, and
+    /// pairs straight away: US-3 is "scan and you are in".
+    private func acceptScanned(_ code: String) {
+        input = code.trimmingCharacters(in: .whitespacesAndNewlines)
+        parse()
+        guard parsedGateway != nil || parsedInstance != nil else {
+            result = "这不是 DSH 配对码，请对准电脑上的二维码。"
+            return
+        }
+        Task { await pairing.pair(input: input) }
     }
 
     private func parse() {

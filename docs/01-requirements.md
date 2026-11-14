@@ -51,7 +51,7 @@
 | ID | 需求 | 验收 |
 | --- | --- | --- |
 | F-1.1 | 解析配对链接 `https://<host>[:port]/mobile-access/pair#token=<43字符>` 与裸 Origin | 契约用例全过（见 [06 §3](06-testing.md#3-契约测试移植)） |
-| F-1.2 | 解析 `dsh1.` / `dsh2.` 密钥（二维码与粘贴） | 同上 |
+| F-1.2 | 解析 `dsh1.` / `dsh2.` 密钥（二维码与粘贴）；首页「扫码」用 `AVCaptureMetadataOutput` 读二维码，扫到即解析并直接配对 | 同上；非配对码给出「这不是 DSH 配对码」 |
 | F-1.3 | 局域网模式：从 `/mobile-access/ca.cer` 取 CA，校验自签 + 有效期内 + SHA-256 指纹 == instanceId，然后固定 | 用真机 + 真网关验证；错误 CA 必须拒绝 |
 | F-1.4 | 远程模式：`dsh1` 允许系统信任（`ca.cer` 可 404）；`dsh2` 必须拿到并校验 CA | 用 cloudflared 与自搭反代各验证一次 |
 | F-1.5 | 调用 `native-pair` 得到 deviceToken / sessionToken / csrfToken，写 Keychain | 与电脑端「设备」列表条目一致 |
