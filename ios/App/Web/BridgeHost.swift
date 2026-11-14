@@ -339,6 +339,21 @@ final class BridgeHost: NSObject, WKScriptMessageHandler {
         session.invalidateAndCancel()
     }
 
+    /// Runs a snippet in the page and hands the result back. Used by the in-app
+    /// self-check, which has no page action to call.
+    func runInPage(_ script: String, completion: @escaping (Any?) -> Void) {
+        guard let webView else {
+            completion(nil)
+            return
+        }
+        webView.evaluateJavaScript(script) { result, error in
+            if let error {
+                NSLog("%@", "page script failed: " + error.localizedDescription)
+            }
+            completion(result)
+        }
+    }
+
     /// Lets the in-app diagnostics screen read device facts through the same
     /// path a page request takes, so the log shows it like anything else.
     func diagnose() async -> BridgeReply {

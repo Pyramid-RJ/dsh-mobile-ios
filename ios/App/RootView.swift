@@ -201,6 +201,9 @@ struct RootView: View {
                 }
 
                 Section("诊断") {
+                    NavigationLink("自检") {
+                        SelfCheckView(model: model, discovery: discovery)
+                    }
                     NavigationLink("S-1 探针：WKWebView + 固定私有 CA") {
                         S1ProbeView(initialGateway: parsedGateway ?? "", expectedInstanceId: parsedInstance)
                     }
