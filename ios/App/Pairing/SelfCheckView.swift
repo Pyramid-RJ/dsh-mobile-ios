@@ -20,6 +20,7 @@ struct SelfCheckView: View {
     @State private var address = ""
     @State private var addressResult: String?
     @State private var probing = false
+    @State private var renewResult: String?
 
     struct Row: Identifiable {
         enum Level { case pass, warn, fail }
@@ -92,6 +93,22 @@ struct SelfCheckView: View {
                         .foregroundStyle(addressResult.hasPrefix("✅") ? .green : .orange)
                 }
                 Text("用系统信任探测，不需要配对；远程隧道地址在配对前可以先在这里确认能不能连通。")
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
+            }
+
+            Section("续期取消（B7 / P0-18）") {
+                Button {
+                    Task { await probeRenewCancel() }
+                } label: {
+                    Label("发起续期并在 50 ms 后取消", systemImage: "arrow.uturn.backward.circle")
+                }
+                if let renewResult {
+                    Text(renewResult)
+                        .font(.caption.monospaced())
+                        .foregroundStyle(.secondary)
+                }
+                Text("点完打开「桥日志」，应看到 auth.renew cancelled 与 reply failed cancelled；若看到 reply ok，说明续期在 50 ms 内就完成了，重试一次即可。")
                     .font(.footnote)
                     .foregroundStyle(.secondary)
             }
@@ -214,6 +231,33 @@ struct SelfCheckView: View {
             detail: value + (matches ? "" : "（期望能力表 " + expected + "）"),
             level: dedicated && matches ? .pass : .warn
         )
+    }
+
+    /// Exercises the cancel path on demand, so B7 does not have to wait for the
+    /// page to renew by itself: invoke auth.renew, abort 50 ms later, and let the
+    /// bridge log show what the shell did with it.
+    private func probeRenewCancel() async {
+        guard let host = BridgeHostRegistry.shared.current else {
+            renewResult = "当前没有打开的页面"
+            return
+        }
+        let script = """
+        (function () {
+          if (!window.__DSH_MOBILE_NATIVE__) { return 'no-bridge'; }
+          var controller = new AbortController();
+          var settled = 'pending';
+          window.__DSH_MOBILE_NATIVE__.invoke('auth.renew', {}, { signal: controller.signal })
+            .then(function () { settled = 'resolved'; }, function (error) { settled = (error && error.code) || 'rejected'; });
+          setTimeout(function () { controller.abort(); }, 50);
+          return 'started';
+        })();
+        """
+        let started = await withCheckedContinuation { (continuation: CheckedContinuation<String?, Never>) in
+            host.runInPage(script) { result in
+                continuation.resume(returning: result as? String)
+            }
+        }
+        renewResult = "已发起（" + (started ?? "nil") + "），请打开桥日志看 auth.renew cancelled"
     }
 
     // MARK: - Presentation
