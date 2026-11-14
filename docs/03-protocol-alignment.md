@@ -87,6 +87,7 @@ instanceId, deviceId, deviceExpiresAt
 | --- | --- | --- |
 | — | `device_revoked` | `deviceRevoked` |
 | — | `device_expired` | `deviceExpired` |
+| 401 | `authentication_failed` | `deviceRevoked`（电脑端已没有这台设备，语义与撤销相同） |
 | 401 / 403 | — | `pairingExpired` |
 | 409 | — | `deviceLimit` |
 | 429 | — | `rateLimited` |

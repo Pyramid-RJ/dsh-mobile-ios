@@ -101,14 +101,10 @@ struct RootView: View {
                     Text(model.status)
                         .font(.footnote)
 
-                    if let session = model.session {
+                    // One row only: right after pairing both sessions point at the
+                    // same host, and two identical "打开" rows read as two devices.
+                    if let session = model.session ?? pairing.session {
                         NavigationLink("打开 \(session.origin.host)") {
-                            GatewayWebViewScreen(session: session)
-                        }
-                    }
-
-                    if let session = pairing.session {
-                        NavigationLink("打开 \(session.origin.host)（刚配对）") {
                             GatewayWebViewScreen(session: session)
                         }
                     }

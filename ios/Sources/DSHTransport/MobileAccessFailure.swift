@@ -15,21 +15,21 @@ public enum MobileAccessFailure: Error, Equatable, CustomStringConvertible, Loca
     public var description: String {
         switch self {
         case .invalidResponse:
-            return "gateway response did not match the mobile-access contract"
+            return "网关响应不符合移动端协议"
         case .deviceRevoked:
-            return "this device was removed on the computer"
+            return "电脑端已移除这台设备，请重新配对"
         case .deviceExpired:
-            return "the device credential expired; pair again"
+            return "设备凭据已过期，请重新配对"
         case .pairingExpired:
-            return "pairing expired; pair again"
+            return "配对已失效，请重新配对"
         case .deviceLimit:
-            return "the gateway reached its paired-device limit"
+            return "电脑端已达到配对设备上限"
         case .rateLimited:
-            return "too many attempts; wait and retry"
+            return "尝试过于频繁，请稍后再试"
         case .serverUnavailable(let status):
-            return "gateway unavailable (HTTP " + String(status) + ")"
+            return "网关不可用（HTTP " + String(status) + "）"
         case .transport(let message):
-            return "network error: " + message
+            return "网络错误：" + message
         }
     }
 
@@ -46,6 +46,11 @@ public enum MobileAccessErrorMapper {
             switch code {
             case "device_revoked": return .deviceRevoked
             case "device_expired": return .deviceExpired
+            // The gateway answers `authentication_failed` when the device token
+            // is not in its list at all (deleted rather than revoked). For the
+            // user that is the same situation as a revocation: this phone is no
+            // longer accepted and has to pair again.
+            case "authentication_failed": return .deviceRevoked
             default: break
             }
         }

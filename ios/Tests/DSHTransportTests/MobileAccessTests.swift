@@ -83,6 +83,12 @@ final class ErrorMappingTests: XCTestCase {
         XCTAssertEqual(MobileAccessErrorMapper.failure(status: 401, errorCode: "device_expired"), .deviceExpired)
     }
 
+    /// The gateway answers `authentication_failed` when the device was deleted
+    /// rather than revoked; the user-facing meaning is the same.
+    func testAuthenticationFailedMeansTheDeviceIsGone() {
+        XCTAssertEqual(MobileAccessErrorMapper.failure(status: 401, errorCode: "authentication_failed"), .deviceRevoked)
+    }
+
     func testUnauthorizedWithoutCodeIsPairingExpired() {
         XCTAssertEqual(MobileAccessErrorMapper.failure(status: 401, errorCode: nil), .pairingExpired)
     }
