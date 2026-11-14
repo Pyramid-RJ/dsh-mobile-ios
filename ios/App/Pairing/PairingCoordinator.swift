@@ -8,7 +8,8 @@ import DSHTrust
 /// Everything the web screen needs to open the gateway with pinned trust.
 struct BrowserSession {
     let origin: GatewayOrigin
-    let evaluator: PinnedTrustEvaluator
+    /// Pinned for a local gateway, the system for a tunnel (docs/04).
+    let evaluator: any GatewayTrustEvaluating
     let cookies: [PlannedCookie]
     /// Needed by the bridge's auth.renew handler; nil for the S-1 probe.
     let deviceToken: String?
@@ -40,19 +41,30 @@ final class PairingCoordinator: ObservableObject {
 
             status = "取 CA…"
             let authority = try await BootstrapCAFetcher.fetch(origin: link.origin)
-            append("CA " + authority.subjectSummary)
-            append("CA sha256 " + authority.sha256Hex)
-
-            if let expected = link.instanceId {
-                guard authority.matches(instanceId: expected) else {
-                    throw PairingFlowError.instanceMismatch(expected: expected, actual: authority.sha256Hex)
+            if let authority {
+                append("CA " + authority.subjectSummary)
+                append("CA sha256 " + authority.sha256Hex)
+                if let expected = link.instanceId {
+                    guard authority.matches(instanceId: expected) else {
+                        throw PairingFlowError.instanceMismatch(expected: expected, actual: authority.sha256Hex)
+                    }
+                    append("instance 指纹一致")
+                } else {
+                    append("链接未带 instance，跳过指纹比对（建议重新扫码）")
                 }
-                append("instance 指纹一致")
             } else {
-                append("链接未带 instance，跳过指纹比对（建议重新扫码）")
+                // No private CA: a public certificate (a tunnel). A link that
+                // carries an `instance` fingerprint promised a CA, so a missing
+                // one is a contradiction - refuse rather than silently fall back
+                // to the system trust store.
+                guard link.instanceId == nil else {
+                    throw PairingFlowError.missingCertificateAuthority
+                }
+                append("网关没有私有 CA，改用系统信任（隧道/公网证书）")
             }
 
-            let evaluator = PinnedTrustEvaluator(certificateAuthority: authority)
+            let evaluator: any GatewayTrustEvaluating = authority.map { PinnedTrustEvaluator(certificateAuthority: $0) }
+                ?? SystemTrustEvaluator()
             let sessionDelegate = PinnedSessionDelegate(evaluator: evaluator)
 
             let configuration = URLSessionConfiguration.ephemeral
@@ -63,7 +75,7 @@ final class PairingCoordinator: ObservableObject {
             let client = MobileAccessClient(
                 origin: link.origin,
                 transport: URLSessionTransport(session: urlSession),
-                expectedInstanceId: authority.sha256Hex
+                expectedInstanceId: authority?.sha256Hex
             )
 
             status = "配对…"
@@ -90,7 +102,7 @@ final class PairingCoordinator: ObservableObject {
                 deviceId: credential.deviceId,
                 deviceToken: credential.deviceToken,
                 deviceExpiresAt: credential.deviceExpiresAt,
-                certificateAuthority: authority.der,
+                certificateAuthority: authority?.der,
                 lastConnectedAt: Date()
             )
             book.upsert(record)

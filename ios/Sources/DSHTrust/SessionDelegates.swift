@@ -1,14 +1,15 @@
 import Foundation
 import Security
 
-/// URLSession delegate that accepts only server certificates chaining to the
-/// pinned CA. Other authentication methods keep the system default behaviour.
+/// URLSession delegate that asks a `GatewayTrustEvaluating` about server trust:
+/// the pinned CA for a local gateway, the system for a tunnel. Other
+/// authentication methods keep the system default behaviour.
 public final class PinnedSessionDelegate: NSObject, URLSessionDelegate {
-    private let evaluator: PinnedTrustEvaluator
+    private let evaluator: any GatewayTrustEvaluating
     /// Last decision per host, for the diagnostics screen.
     public private(set) var decisions: [String: TrustDecision] = [:]
 
-    public init(evaluator: PinnedTrustEvaluator) {
+    public init(evaluator: any GatewayTrustEvaluating) {
         self.evaluator = evaluator
         super.init()
     }

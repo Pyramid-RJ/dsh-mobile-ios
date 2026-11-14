@@ -130,7 +130,7 @@ struct GatewayWebView: UIViewRepresentable {
             .deviceRevoked,
         ])
 
-        private let evaluator: PinnedTrustEvaluator
+        private let evaluator: any GatewayTrustEvaluating
 
         init(session: BrowserSession, onSwitchComputer: (() -> Void)?, onDeviceRevoked: (() -> Void)?) {
             evaluator = session.evaluator

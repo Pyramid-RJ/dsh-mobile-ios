@@ -27,13 +27,50 @@ public enum TrustDecision: Equatable {
     case rejected(TrustFailure)
 }
 
+/// Anything that can answer a server-trust challenge.
+///
+/// Two implementations exist on purpose: the pinned evaluator for gateways that
+/// serve a private CA, and the system evaluator for gateways behind a public
+/// certificate (a tunnel). Which one a record uses is decided at pairing time and
+/// stored with the record (docs/04 section 2).
+public protocol GatewayTrustEvaluating: Sendable {
+    func evaluate(_ trust: SecTrust, host: String?) -> TrustDecision
+}
+
+/// Accepts whatever the system already trusts.
+///
+/// Only for gateways that answered 404 at `/mobile-access/ca.cer`, i.e. a public
+/// certificate from a real CA. A pairing link that requires pinning (`dsh2.`)
+/// must never end up here.
+public struct SystemTrustEvaluator: GatewayTrustEvaluating {
+    public init() {}
+
+    public func evaluate(_ trust: SecTrust, host: String?) -> TrustDecision {
+        let policyHost: CFString? = host.map { $0 as CFString }
+        let policy = SecPolicyCreateSSL(true, policyHost)
+        let status = SecTrustSetPolicies(trust, [policy] as CFArray)
+        guard status == errSecSuccess else {
+            return .rejected(.setupFailed(status))
+        }
+        var error: CFError?
+        if SecTrustEvaluateWithError(trust, &error) {
+            return .allowed
+        }
+        var message = "unknown trust error"
+        if let error {
+            message = (CFErrorCopyDescription(error) as String?) ?? message
+        }
+        return .rejected(.evaluationFailed(message))
+    }
+}
+
 /// Evaluates a server trust against a pinned CA.
 ///
 /// This is the single place allowed to answer a TLS challenge for server trust.
 /// Keeping it in one type is what makes the "pin exactly one CA" rule
 /// auditable: no other module may call useCredential for server trust
 /// (docs/02 section 1).
-public struct PinnedTrustEvaluator {
+public struct PinnedTrustEvaluator: GatewayTrustEvaluating {
     public let anchors: [SecCertificate]
 
     public init(anchors: [SecCertificate]) {

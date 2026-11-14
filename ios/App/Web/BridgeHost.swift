@@ -13,7 +13,7 @@ import DSHTrust
 /// security origin are checked here (docs/02 section 4.3).
 final class BridgeHost: NSObject, WKScriptMessageHandler {
     private let origin: GatewayOrigin
-    private let evaluator: PinnedTrustEvaluator
+    private let evaluator: any GatewayTrustEvaluating
     private let deviceToken: String?
     private let onSwitchComputer: (() -> Void)?
     /// The page reports that the computer revoked this device (event stream
@@ -33,7 +33,7 @@ final class BridgeHost: NSObject, WKScriptMessageHandler {
 
     init(
         origin: GatewayOrigin,
-        evaluator: PinnedTrustEvaluator,
+        evaluator: any GatewayTrustEvaluating,
         deviceToken: String?,
         onSwitchComputer: (() -> Void)? = nil,
         onDeviceRevoked: (() -> Void)? = nil

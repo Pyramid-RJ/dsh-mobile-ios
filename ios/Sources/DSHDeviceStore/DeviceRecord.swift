@@ -15,8 +15,9 @@ public struct DeviceRecord: Codable, Equatable, Identifiable, Sendable {
     public var deviceId: String
     public var deviceToken: String
     public var deviceExpiresAt: Date
-    /// DER of the pinned CA.
-    public var certificateAuthority: Data
+    /// DER of the pinned CA, or nil when this gateway uses a public
+    /// certificate and the system trust store is enough (a tunnel).
+    public var certificateAuthority: Data?
     public var createdAt: Date
     public var lastConnectedAt: Date?
 
@@ -28,7 +29,7 @@ public struct DeviceRecord: Codable, Equatable, Identifiable, Sendable {
         deviceId: String,
         deviceToken: String,
         deviceExpiresAt: Date,
-        certificateAuthority: Data,
+        certificateAuthority: Data?,
         createdAt: Date = Date(),
         lastConnectedAt: Date? = nil
     ) {

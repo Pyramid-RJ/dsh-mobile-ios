@@ -18,6 +18,8 @@
 
 ## 2 私有 CA 在 iOS 上的落地方式
 
+> 例外（0.9.25 起）：网关在 `/mobile-access/ca.cer` 返回 **404** 表示它没有私有 CA（典型是隧道/公网证书）。此时**只有在配对链接不带 `instance` 指纹**的情况下才退回系统信任；链接带了 `instance` 却拿不到 CA，一律拒绝（`missingCertificateAuthority`）。记录里 `certificateAuthority` 为 nil 即表示「系统信任」，自检页不会把它当成错误。
+
 这是与 Android 差异最大、也是最容易做错的部分。
 
 ### 2.1 Android 的做法（参考）

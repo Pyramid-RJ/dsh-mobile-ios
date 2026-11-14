@@ -261,8 +261,13 @@ final class AppModel: ObservableObject {
 
     // MARK: - Plumbing
 
-    private func evaluator(for record: DeviceRecord) throws -> PinnedTrustEvaluator {
-        guard let authority = CertificateAuthority(der: record.certificateAuthority) else {
+    /// Pinned when the record carries a CA, the system when it does not (a
+    /// tunnel paired through a public certificate).
+    private func evaluator(for record: DeviceRecord) throws -> any GatewayTrustEvaluating {
+        guard let der = record.certificateAuthority else {
+            return SystemTrustEvaluator()
+        }
+        guard let authority = CertificateAuthority(der: der) else {
             throw PairingFlowError.notACertificate
         }
         return PinnedTrustEvaluator(certificateAuthority: authority)

@@ -43,6 +43,12 @@ final class DeviceHealthTests: XCTestCase {
         )
     }
 
+    func testSystemTrustRecordHasNoCertificateIssue() {
+        var value = healthRecord()
+        value.certificateAuthority = nil
+        XCTAssertEqual(DeviceHealth.issues(record: value, now: now, caFingerprint: nil), [])
+    }
+
     func testExpiryAndMismatchTogether() {
         let value = healthRecord(expires: 1_734_000_000)
         let actual = String(repeating: "c", count: 64)

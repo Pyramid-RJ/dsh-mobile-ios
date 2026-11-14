@@ -10,6 +10,8 @@ public enum PairingFlowError: Error, Equatable, CustomStringConvertible, Localiz
     case notACertificate
     case unexpectedStatus(Int)
     case instanceMismatch(expected: String, actual: String)
+    /// The link demands a pinned CA but the gateway serves none.
+    case missingCertificateAuthority
 
     public var description: String {
         switch self {
@@ -21,6 +23,8 @@ public enum PairingFlowError: Error, Equatable, CustomStringConvertible, Localiz
             return "/mobile-access/ca.cer 返回的不是证书"
         case .unexpectedStatus(let code):
             return "取 CA 失败：HTTP " + String(code) + "（404 表示该网关没有私有 CA）"
+        case .missingCertificateAuthority:
+            return "这条配对链接要求固定 CA，但网关没有提供 /mobile-access/ca.cer（请改用 dsh1 或公网地址）"
         case .instanceMismatch(let expected, let actual):
             return "CA 指纹与链接里的 instance 不一致（链接 "
                 + String(expected.prefix(12)) + "… / CA " + String(actual.prefix(12)) + "…）"
@@ -33,7 +37,13 @@ public enum PairingFlowError: Error, Equatable, CustomStringConvertible, Localiz
 /// The one place allowed to talk TLS without a pinned CA, restricted to
 /// /mobile-access/ca.cer (docs/04 section 2.3).
 enum BootstrapCAFetcher {
-    static func fetch(origin: GatewayOrigin) async throws -> CertificateAuthority {
+    /// Fetches the private CA, or nil when the gateway serves none.
+    ///
+    /// A tunnel terminates TLS with a public certificate, so
+    /// `/mobile-access/ca.cer` answers 404 there. That is not an error: it means
+    /// the gateway is reached through a real CA and the system trust store is
+    /// enough (docs/01 F-1.4, docs/04 section 2).
+    static func fetch(origin: GatewayOrigin) async throws -> CertificateAuthority? {
         guard let url = origin.url(path: MobileAccessEndpoint.caCertificate.rawValue) else {
             throw PairingFlowError.noURL
         }
@@ -49,6 +59,7 @@ enum BootstrapCAFetcher {
 
         let (data, response) = try await session.data(for: request)
         guard let http = response as? HTTPURLResponse else { throw PairingFlowError.notACertificate }
+        if http.statusCode == 404 { return nil }
         guard http.statusCode == 200 else { throw PairingFlowError.unexpectedStatus(http.statusCode) }
         guard let authority = CertificateAuthority.parse(data) else {
             throw PairingFlowError.notACertificate

@@ -39,6 +39,8 @@ public enum DeviceHealth {
         if record.isExpired(now: now) {
             issues.append(.expired)
         }
+        // No stored CA means "system trust" (a tunnel), which is not a problem.
+        guard record.certificateAuthority != nil else { return issues }
         guard let caFingerprint else {
             issues.append(.certificateUnreadable)
             return issues
