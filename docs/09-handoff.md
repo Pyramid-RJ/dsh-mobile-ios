@@ -83,15 +83,19 @@ ios/
 
 - 本机是 Windows，**没有 Swift/Xcode**：所有编译与测试都在 GitHub Actions 上完成，本地只做结构校验（`python` 3.12、`node` 24 可用）；
 - **直连 GitHub 不通，必须走代理** `http://127.0.0.1:7897`（WinINET 系统代理 Git 不读）。仓库已持久化 `git config http.proxy`；
-- **两个 git 并存，只有一个能联网**：
-  - `D:\Program Files\Git\cmd\git.exe`（2.56.1，OpenSSL）→ **可用**，推送/拉取都走它；
-  - DSH 会话里的 `git`（niugit 2.56，schannel）→ 仍报 `SEC_E_NO_CREDENTIALS`，**不要用它联网**；
-- **凭据**：系统 git 的 `credential.helper=manager`（GCM，在 `ucrt64/bin`）在你自己的终端可用；但本会话的 shell 里 `sh.exe`/`bash.exe` 报 `couldn't create signal pipe, Win32 error 5`，`!`/prompt 形式的 helper 起不来，所以推送用 extraheader 绕过：
-  ```bash
-  G="/d/Program Files/Git/cmd/git.exe"
-  AUTH=$(printf 'x-access-token:%s' "$(gh auth token)" | base64 -w0)
-  "$G" -c credential.helper= -c http.extraheader="Authorization: Basic $AUTH" push origin main
-  ```
+- **两个 git 并存，都能联网，但只有系统 git 能取到凭据**（2026-11-14 晚复核修正）：
+  - `D:\Program Files\Git\cmd\git.exe`（2.56.1，OpenSSL）→ **推荐**，推送/拉取都走它；
+  - DSH 会话里的 `git`（niugit 2.56.0，schannel）→ **沙箱外联网正常**（`ls-remote` 通过）；但**取不到凭据**：它不读 `D:/Program Files/Git/etc/gitconfig`，看不到 `credential.helper=manager`，且 exec-path 里只有 `git-credential-wincred.exe`。所以 `push` 仍会失败，**联网推送继续用系统 git**；
+  - 沙箱内的 niugit 报 `SEC_E_NO_CREDENTIALS` 是**沙箱限制**（同 `sh.exe` 那条），不是 niugit 缺陷，也不是证书损坏（`CurrentUser\My` 已 `total=68 broken=0`）；
+- **凭据**：系统 git 的 `credential.helper=manager`（GCM 2.9.1，在 `ucrt64/bin`）**正常可用**，`git credential fill` 能返回 password。**沙箱外直接 `git push` 即可，不需要 extraheader**（2026-11-14 晚复核：`push --dry-run` 通过）。
+  - 若在**沙箱内**推送：`sh.exe`/`bash.exe` 报 `couldn't create signal pipe, Win32 error 5`，Git 给任何 helper 都套一层 `sh.exe -c`（**即使配成绝对路径的普通命令形态也一样**），所以沙箱内 `credential fill` 必然失败。**这是沙箱限制，不要据此改 helper 配置**；
+  - 沙箱内确需推送时，才用 extraheader 一次性绕过（用完即弃，勿写入 config）：
+    ```bash
+    G="/d/Program Files/Git/cmd/git.exe"
+    AUTH=$(printf 'x-access-token:%s' "$(gh auth token)" | base64 -w0)
+    "$G" -c credential.helper= -c http.extraheader="Authorization: Basic $AUTH" push origin main
+    ```
+  - 全局 `~/.gitconfig` 里由 `gh auth setup-git` 留下的 `!` 形态 helper 已于 2026-11-14 清理（备份 `~/.gitconfig.bak-20261114-203214`），现在只有 system 级的 `manager`；
 - **对象库已修复**：用系统 git `fetch` 补齐远端对象后 `git fsck` 无错误（只剩 dangling commit，是历次重写留下的，无害）；本地 `main` 已 `reset --hard origin/main`，与远端一致；
 - **换行符**：已加 `.gitattributes`（`*.sh/*.py/*.yml/*.json/*.md/*.swift` 一律 LF）。Windows 上手写/复制文件时注意别引入 CRLF，否则 CI 上会 `bad interpreter: /bin/bash^M`；
 - macOS 分钟在公开仓库免费，但排队时间不可控，发布偶发需要重跑。

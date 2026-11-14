@@ -1,0 +1,25 @@
+--- a/src/client/input/editor/command-chip-selection.ts
++++ b/src/client/input/editor/command-chip-selection.ts
+@@ -23,9 +23,20 @@
+ 
+ /**
+  * Keys that never clear a selected chip by themselves: bare modifiers, and
+- * IME or virtual-keyboard keys whose deletion arrives later as an input event.
++ * keys whose deletion arrives later as an input event.
++ *
++ * Backspace/Delete belong here on WebKit: the engine reports the key first and
++ * only then applies the deletion as beforeinput(deleteContentBackward). The
++ * keydown fallback below would clear the selection in a microtask before that
++ * input event arrives, and $decide would immediately reselect the chip, so the
++ * chip could never be deleted on iOS. On engines that delete synchronously
++ * inside keydown (Chromium), DELETE_CHARACTER_COMMAND clears the selection
++ * itself, so nothing depends on this fallback for these two keys.
+  */
+-const PASSIVE_KEYS = new Set(['Shift', 'Control', 'Alt', 'Meta', 'Unidentified', 'Process'])
++const PASSIVE_KEYS = new Set([
++  'Shift', 'Control', 'Alt', 'Meta', 'Unidentified', 'Process',
++  'Backspace', 'Delete',
++])
+ 
+ /** The chip a collapsed caret deletes next in one direction, or null. */
+ function $commandChipBesideCaret(isBackward: boolean): CommandChipNode | null {

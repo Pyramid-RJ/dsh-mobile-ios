@@ -74,7 +74,22 @@ const PASSIVE_KEYS = new Set([
 
 桌面行为不变：keydown 后 Lexical 键位表同步派发 `DELETE_CHARACTER_COMMAND`，`$decide` 自己会 `clear()` 并放行删除，不依赖这段兜底。
 
-**未验证**：本机没有可运行的 DSH 开发环境，改动只做了代码层面推演；需要上游在真机 iOS 上复测「退格两次删除」与「方向键跨过词条」两条路径。
+补丁与验证脚本放在 [`docs/patches/`](patches/README.md)：
+
+- `command-chip-selection.patch` —— 可直接 `git apply` 的 diff；
+- `simulate-chip-delete.js` —— 事件时序模型，实测输出：
+
+```text
+chromium + old PASSIVE_KEYS  presses=2 deleted=1 chipLeft=no
+chromium + new PASSIVE_KEYS  presses=2 deleted=1 chipLeft=no
+webkit + old PASSIVE_KEYS    presses=2 deleted=0 chipLeft=yes
+webkit + new PASSIVE_KEYS    presses=2 deleted=1 chipLeft=no
+RESULT: matches the diagnosis
+```
+
+即：Chromium 两条路径都能删（无回归），WebKit 旧代码**永远删不掉**、新代码第二次退格即可删除。
+
+**未验证**：本机没有可运行的 DSH 开发环境，改动只做了代码层面推演与状态机模拟；需要上游在真机 iOS 上复测「退格两次删除」与「方向键跨过词条」两条路径。
 
 ## 6 复现与取证方法
 
