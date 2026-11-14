@@ -81,6 +81,25 @@ gh variable set IOS_XCODE_VERSION --body "26.6"
 归档用 `ditto` 打包成 zip 再上传：`actions/upload-artifact` 不保留 `.xcarchive` 里的符号链接，直接传目录会得到一个导不回去的归档。
 | `ios-release-<version>` | 版本化命名后的包，发布用 | 30 天 |
 
+### 4.1 CI 包的版本号从 tag 推导（2026-11-14）
+
+以前 CI 产物永远显示 `0.1.0`：`MARKETING_VERSION` 取自仓库变量 `IOS_MARKETING_VERSION`，变量没设就回落到 `project.yml` 的默认值。现在 build job 多了一步「Derive the marketing version from the newest ios-v* tag」：
+
+| 情况 | 版本 | 例子 |
+| --- | --- | --- |
+| HEAD 正好在 tag 上 | 该 tag 的版本 | `ios-v0.9.0` → `0.9.0` |
+| HEAD 在 tag 之后 | patch +1（未发布的下一版，排序在发布版之上） | `0.9.0` + 3 个提交 → `0.9.1` |
+| 设了 `IOS_MARKETING_VERSION` | 该变量（显式覆盖） | — |
+| 没有可达的 `ios-v*` tag | 保持 `project.yml` 的值，并打 warning | — |
+
+两个前提：
+
+- checkout 必须 `fetch-depth: 0`（build job 已如此），否则浅克隆里没有 tag，会静默回落到 `project.yml`；
+- 版本号保持点分数字（`X.Y.Z`），`CFBundleVersion` 仍用 `run_number`，AltStore 与安装器都按这个规则比较。
+
+验证（run 43592931901，HEAD 距 `ios-v0.9.0` 3 个提交）：`release.json` 里 `version=0.9.1 build=54`，ipa 的 `Info.plist` 同为 `0.9.1 / 54`。
+
+
 ```bash
 gh run list --workflow "iOS CI"
 gh run watch
