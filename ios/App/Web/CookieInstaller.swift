@@ -22,6 +22,64 @@ enum CookieInstaller {
         }
     }
 
+    /// Removes every cookie and the cached site data for one host.
+    ///
+    /// Deleting a device record has to leave nothing behind: a stale session
+    /// cookie would let the next page load look authenticated (docs/01 F-4.4).
+    static func remove(host: String, from store: WKWebsiteDataStore = .default()) async {
+        let cookieStore = store.httpCookieStore
+        let cookies = await allCookies(from: cookieStore)
+        for cookie in cookies where cookie.domain.hasSuffix(host) {
+            await withCheckedContinuation { (continuation: CheckedContinuation<Void, Never>) in
+                cookieStore.delete(cookie) { continuation.resume() }
+            }
+        }
+
+        let types = WKWebsiteDataStore.allWebsiteDataTypes()
+        let records = await allRecords(of: types, in: store)
+        let matching = records.filter { record in
+            record.displayName.caseInsensitiveCompare(host) == .orderedSame
+                || record.displayName.hasSuffix("." + host)
+        }
+        guard !matching.isEmpty else { return }
+        await withCheckedContinuation { (continuation: CheckedContinuation<Void, Never>) in
+            store.removeData(ofTypes: types, for: matching) { continuation.resume() }
+        }
+    }
+
+    /// Removes everything this app stored in the web view.
+    static func removeAll(from store: WKWebsiteDataStore = .default()) async {
+        let cookieStore = store.httpCookieStore
+        for cookie in await allCookies(from: cookieStore) {
+            await withCheckedContinuation { (continuation: CheckedContinuation<Void, Never>) in
+                cookieStore.delete(cookie) { continuation.resume() }
+            }
+        }
+        let types = WKWebsiteDataStore.allWebsiteDataTypes()
+        await withCheckedContinuation { (continuation: CheckedContinuation<Void, Never>) in
+            store.removeData(ofTypes: types, modifiedSince: .distantPast) { continuation.resume() }
+        }
+    }
+
+    private static func allCookies(from store: WKHTTPCookieStore) async -> [HTTPCookie] {
+        await withCheckedContinuation { (continuation: CheckedContinuation<[HTTPCookie], Never>) in
+            store.getAllCookies { cookies in
+                continuation.resume(returning: cookies)
+            }
+        }
+    }
+
+    private static func allRecords(
+        of types: Set<String>,
+        in store: WKWebsiteDataStore
+    ) async -> [WKWebsiteDataRecord] {
+        await withCheckedContinuation { (continuation: CheckedContinuation<[WKWebsiteDataRecord], Never>) in
+            store.fetchDataRecords(ofTypes: types) { records in
+                continuation.resume(returning: records)
+            }
+        }
+    }
+
     private static func makeCookie(_ cookie: PlannedCookie) -> HTTPCookie? {
         let properties: [HTTPCookiePropertyKey: Any] = [
             .name: cookie.name,

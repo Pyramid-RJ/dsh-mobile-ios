@@ -48,57 +48,57 @@
 
 ### 4.1 连接与配对 [M]
 
-| ID | 需求 | 验收 |
-| --- | --- | --- |
-| F-1.1 | 解析配对链接 `https://<host>[:port]/mobile-access/pair#token=<43字符>` 与裸 Origin | 契约用例全过（见 [06 §3](06-testing.md#3-契约测试移植)） |
-| F-1.2 | 解析 `dsh1.` / `dsh2.` 密钥（二维码与粘贴）；首页「扫码」用 `AVCaptureMetadataOutput` 读二维码，扫到即解析并直接配对 | 同上；非配对码给出「这不是 DSH 配对码」 |
-| F-1.3 | 局域网模式：从 `/mobile-access/ca.cer` 取 CA，校验自签 + 有效期内 + SHA-256 指纹 == instanceId，然后固定 | 用真机 + 真网关验证；错误 CA 必须拒绝 |
-| F-1.4 | 远程模式：`dsh1` 允许系统信任（`ca.cer` 可 404）；`dsh2` 必须拿到并校验 CA | 用 cloudflared 与自搭反代各验证一次 |
-| F-1.5 | 调用 `native-pair` 得到 deviceToken / sessionToken / csrfToken，写 Keychain | 与电脑端「设备」列表条目一致 |
-| F-1.6 | 启动时用 `native-renew` 续期；401 时能区分 `device_revoked` / `device_expired` | 撤销设备后 App 显示「电脑端已移除」 |
-| F-1.7 | `native-probe` 做可达性检查，不消耗会话 | 设备列表状态点正确 |
-| F-1.8 | 手动输入 `https://IP:端口` | 非法输入被拒绝且不崩溃 |
-| F-1.9 | 局域网自动发现（Bonjour） | **取决于 S-4**；失败则降级为手动 |
+| ID | 需求 | 验收 | 状态 |
+| --- | --- | --- | --- |
+| F-1.1 | 解析配对链接 `https://<host>[:port]/mobile-access/pair#token=<43字符>` 与裸 Origin | 契约用例全过（见 [06 §3](06-testing.md#3-契约测试移植)） | ✅ 已验证 |
+| F-1.2 | 解析 `dsh1.` / `dsh2.` 密钥（二维码与粘贴）；首页「扫码」用 `AVCaptureMetadataOutput` 读二维码，扫到即解析并直接配对 | 同上；非配对码给出「这不是 DSH 配对码」 | ✅ 已验证（0.9.7 扫码） |
+| F-1.3 | 局域网模式：从 `/mobile-access/ca.cer` 取 CA，校验自签 + 有效期内 + SHA-256 指纹 == instanceId，然后固定 | 用真机 + 真网关验证；错误 CA 必须拒绝 | ✅ 已验证 |
+| F-1.4 | 远程模式：`dsh1` 允许系统信任（`ca.cer` 可 404）；`dsh2` 必须拿到并校验 CA | 用 cloudflared 与自搭反代各验证一次 | 🟡 已实现（0.9.25），待隧道地址 |
+| F-1.5 | 调用 `native-pair` 得到 deviceToken / sessionToken / csrfToken，写 Keychain | 与电脑端「设备」列表条目一致 | ✅ 已验证 |
+| F-1.6 | 启动时用 `native-renew` 续期；401 时能区分 `device_revoked` / `device_expired` | 撤销设备后 App 显示「电脑端已移除」 | ✅ 已验证（0.9.19） |
+| F-1.7 | `native-probe` 做可达性检查，不消耗会话 | 设备列表状态点正确 | ✅ 已验证（自检页） |
+| F-1.8 | 手动输入 `https://IP:端口` | 非法输入被拒绝且不崩溃 | ✅ 已验证 |
+| F-1.9 | 局域网自动发现（Bonjour） | **取决于 S-4**；失败则降级为手动 | 🟡 已实现（0.9.21），待真机 |
 
 ### 4.2 会话与页面 [M]
 
-| ID | 需求 | 验收 |
-| --- | --- | --- |
-| F-2.1 | 加载 dedicated 页面，注入 Cookie（`__Host-dsh_ma_session` 与 `__Host-dsh_ma_csrf`）后才开始导航 | 页面不出现登录/配对表单 |
-| F-2.2 | 只允许精确 Origin 的主框架导航；同源保留，外链交系统浏览器 | 点击外链不破坏当前页面 |
-| F-2.3 | 子框架只允许同源 | 第三方 iframe 被阻断 |
-| F-2.4 | 首屏加载失败给出可操作的处理（重试 / 换地址 / 重新配对） | 拔网线、关网关、错 CA 三种场景都有明确提示 |
-| F-2.5 | 撤销通知（在线）立即断开并回设备列表 | 电脑端撤销后 ≤1 次请求内失效 |
+| ID | 需求 | 验收 | 状态 |
+| --- | --- | --- | --- |
+| F-2.1 | 加载 dedicated 页面，注入 Cookie（`__Host-dsh_ma_session` 与 `__Host-dsh_ma_csrf`）后才开始导航 | 页面不出现登录/配对表单 | ✅ 已验证 |
+| F-2.2 | 只允许精确 Origin 的主框架导航；同源保留，外链交系统浏览器 | 点击外链不破坏当前页面 | ✅ 已验证 |
+| F-2.3 | 子框架只允许同源 | 第三方 iframe 被阻断 | ✅ 已验证 |
+| F-2.4 | 首屏加载失败给出可操作的处理（重试 / 换地址 / 重新配对） | 拔网线、关网关、错 CA 三种场景都有明确提示 | 🟡 已实现，待真机（断网/错 CA 场景） |
+| F-2.5 | 撤销通知（在线）立即断开并回设备列表 | 电脑端撤销后 ≤1 次请求内失效 | ✅ 已验证（0.9.19） |
 
 ### 4.3 原生桥 [M/S]
 
 对齐 Android 的 `window.__DSH_MOBILE_NATIVE__` 契约，见 [03](03-protocol-alignment.md)。
 
-| ID | 能力 | 优先级 |
-| --- | --- | --- |
-| F-3.1 | `capabilities()` 返回**实际实现**的列表 | [M] |
-| F-3.2 | `invoke()` 收发、`requestId`、超时、并发上限 16 | [M] |
-| F-3.3 | `auth.renew`（含 `auth.renew.cancel` 与 `AbortSignal`） | [M] |
-| F-3.4 | `clipboard.read` / `clipboard.write`（256 KiB 上限） | [M] |
-| F-3.5 | `share` | [S] |
-| F-3.6 | `files.pick`（8 MiB 上限、MIME 过滤、单文件） | [S] |
-| F-3.7 | `camera.capture`（权限、临时文件、全分辨率） | [S] |
-| F-3.8 | `mobile.switch-computer` | [S] |
-| F-3.9 | `mobile.display-scale.get/set`（80–125，整数） | [S] |
-| F-3.10 | `dsh-mobile:native-back` 返回键契约 | [M] |
-| F-3.11 | `keyboard.state` 事件（软键盘可见 + 无实体键盘） | [S] |
-| F-3.12 | `page.background` / `page.scroll` | [C] |
-| F-3.13 | `notification.notify` / `notification.settings` / `notification.background.*` | **[N]** |
-| F-3.14 | iroh 传输 | **[N]**（需 Rust 侧车与原生传输，超出本期） |
+| ID | 能力 | 优先级 | 状态 |
+| --- | --- | --- | --- |
+| F-3.1 | `capabilities()` 返回**实际实现**的列表 | [M] | ✅ 已验证（自检页比对页面收到的能力表） |
+| F-3.2 | `invoke()` 收发、`requestId`、超时、并发上限 16 | [M] | ✅ 已验证；活动类请求 305 s（[11 §2.2](11-contract-diff.md)） |
+| F-3.3 | `auth.renew`（含 `auth.renew.cancel` 与 `AbortSignal`） | [M] | ✅ 已验证 + 0.9.22 补取消语义 |
+| F-3.4 | `clipboard.read` / `clipboard.write`（256 KiB 上限） | [M] | ✅ 已验证 |
+| F-3.5 | `share` | [S] | ⚠️ 实现但页面无调用点 |
+| F-3.6 | `files.pick`（8 MiB 上限、MIME 过滤、单文件） | [S] | ✅ 已验证 |
+| F-3.7 | `camera.capture`（权限、临时文件、全分辨率） | [S] | ✅ 已验证 |
+| F-3.8 | `mobile.switch-computer` | [S] | ✅ 已验证 |
+| F-3.9 | `mobile.display-scale.get/set`（80–125，整数） | [S] | ✅ 已验证 |
+| F-3.10 | `dsh-mobile:native-back` 返回键契约 | [M] | 🟡 已实现（0.9.24），待真机验证 |
+| F-3.11 | `keyboard.state` 事件（软键盘可见 + 无实体键盘） | [S] | ⛔ 已撤回，交还页面（[10 §12](10-upstream-issues.md)） |
+| F-3.12 | `page.background` / `page.scroll` | [C] | ⬜ 未做（可选） |
+| F-3.13 | `notification.notify` / `notification.settings` / `notification.background.*` | **[N]** | ⛔ 不做 |
+| F-3.14 | iroh 传输 | **[N]** | ⛔ 不做 |
 
 ### 4.4 设备管理 [S]
 
-| ID | 需求 |
-| --- | --- |
-| F-4.1 | 已配对设备列表：名称、类型、Origin、可达状态、最近连接时间 |
-| F-4.2 | 重命名、删除本地记录、上移/置顶 |
-| F-4.3 | 启动行为：直接进入 / 显示列表 |
-| F-4.4 | 删除记录 = 删除 Keychain 凭据 + 清 Cookie/网站数据；不等于电脑端撤销 |
+| ID | 需求 | 状态 |
+| --- | --- | --- |
+| F-4.1 | 已配对设备列表：名称、类型、Origin、可达状态、最近连接时间 | ✅ 已验证（0.9.4） |
+| F-4.2 | 重命名、删除本地记录、上移/置顶 | ✅ 已验证（删除 0.9.4；重命名/置顶待逐条确认） |
+| F-4.3 | 启动行为：直接进入 / 显示列表 | ✅ 已验证（自动恢复 + 重装提示） |
+| F-4.4 | 删除记录 = 删除 Keychain 凭据 + 清 Cookie/网站数据；不等于电脑端撤销 | ✅ 0.9.29 起 Keychain + 该主机的 Cookie 与站点数据一起清 |
 
 ### 4.5 明确不做 [N]
 

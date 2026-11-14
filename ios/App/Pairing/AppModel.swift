@@ -120,6 +120,11 @@ final class AppModel: ObservableObject {
             connection = .idle
         }
         persist()
+        // The record is gone, so its session must be too: a leftover cookie
+        // would keep the next page load looking authenticated (docs/01 F-4.4).
+        if let host = (try? PairingLink.parse(record.origin).origin)?.host {
+            Task { await CookieInstaller.remove(host: host) }
+        }
     }
 
     /// Makes one computer the default: `restore()` connects to the first entry.
@@ -249,6 +254,7 @@ final class AppModel: ObservableObject {
 
     func forgetAll() {
         try? store.delete()
+        Task { await CookieInstaller.removeAll() }
         book = DeviceRecordBook()
         devices = []
         reachability = [:]

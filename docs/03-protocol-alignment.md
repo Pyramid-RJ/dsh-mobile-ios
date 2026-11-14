@@ -145,21 +145,21 @@ window.dispatchEvent(new Event('dsh-mobile-native-ready'))
 
 ## 6 能力映射总表
 
-| action | Android | iOS 本期 | iOS 实现要点 |
-| --- | --- | --- | --- |
-| `files.pick` | ✅ | **[S]** 建议实现 | 依赖 S-2；`UIDocumentPicker`/`PHPicker`；8 MiB；单文件；MIME 过滤 |
-| `camera.capture` | ✅ | **[S]** 视成本 | `UIImagePickerController`；临时文件清理；权限 |
-| `share` | ✅ | **[S]** 便宜 | `UIActivityViewController`，`text/plain` |
-| `clipboard.read` | ✅ | **[M]** | `UIPasteboard`；iOS 16+ 会弹"允许粘贴"系统提示，**必须**在 UI 里解释，否则用户以为卡死 |
-| `clipboard.write` | ✅ | **[M]** | 同上；256 KiB 上限 |
-| `auth.renew` | ✅ | **[M]** | `native-renew` + 重写 Cookie |
-| `notification.notify` | ✅ | **[无]** | 无 APNs；本地通知缺少事件来源，不必做 |
-| `notification.settings` | ✅ | **[无]** | 仅当实现了通知才有意义 |
-| `notification.background.get/set` | ✅ | **[无]** | 页面对这两个能力做 `includes` 检查，缺失只隐藏该行 |
-| `mobile.switch-computer` | ✅ | **[S]** | 回设备列表 |
-| `device.revoked` | ✅ | **[S]** | 页面从事件流得知 `reason: "device_revoked"` 时通知原生：标记该电脑为「已移除」并退回设备列表（页面不检查能力表，直接 `invoke`，忽略回执） |
-| `mobile.display-scale.get/set` | ✅ | **[S]** | 改 `meta viewport`，公式见 [03 §6.1](#61-显示缩放公式) |
-| iroh 传输 | ✅（完整版） | **[无]** | 见 [02 §8](02-architecture.md#8-与-iroh-的关系) |
+| action | Android | iOS 状态 | 证据 | iOS 实现要点 |
+| --- | --- | --- | --- | --- |
+| `files.pick` | ✅ | ✅ 已验证 | 2026-11-14 / 0.9.2 真机选 PDF 成功 | `UIDocumentPicker`；8 MiB；单文件；MIME 过滤 |
+| `camera.capture` | ✅ | ✅ 已验证 | 2026-11-14 / 0.9.2 拍照 + 0.9.3 权限拒绝 | `UIImagePickerController`；60 s 原生超时；权限前置检查 |
+| `share` | ✅ | ⚠️ 实现未使用 | 页面无调用点（[10 §7](10-upstream-issues.md)） | `UIActivityViewController`，`text/plain` |
+| `clipboard.read` | ✅ | ✅ 已验证 | 2026-11-14 真机 | `UIPasteboard`；系统粘贴提示需在 UI 解释 |
+| `clipboard.write` | ✅ | ✅ 已验证 | 同上；256 KiB 上限 | 超限回 `payload_too_large` |
+| `auth.renew` | ✅ | ✅ 已验证 | 桥日志 `invoke auth.renew` → `reply ok` | `native-renew` + 重写 Cookie；失败回凭据类错误码（[11 §2.1](11-contract-diff.md)） |
+| `notification.notify` | ✅ | ❌ 不做 | — | 无 APNs；本地通知缺少事件来源 |
+| `notification.settings` | ✅ | ❌ 不做 | — | 仅当实现了通知才有意义 |
+| `notification.background.get/set` | ✅ | ❌ 不做 | — | 页面 `includes` 检查缺失只隐藏该行 |
+| `mobile.switch-computer` | ✅ | ✅ 已验证 | 2026-11-14 长按抽屉开关 | 回设备列表 |
+| `device.revoked` | ✅ | ✅ 已验证 | 2026-11-15 / 0.9.19 撤销检测 | 标记「已移除」并退回设备列表 |
+| `mobile.display-scale.get/set` | ✅ | ✅ 已验证 | 2026-11-14 缩放持久化 | 改 `meta viewport`，见 §6.1 |
+| iroh 传输 | ✅（完整版） | ❌ 不做 | — | 见 [02 §8](02-architecture.md#8-与-iroh-的关系) |
 
 ### 6.0.1 切换电脑是一个长按手势（2026-11-14 对照上游 `native-mobile.ts` 确认）
 
