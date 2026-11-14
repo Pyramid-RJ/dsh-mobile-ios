@@ -122,6 +122,8 @@ window.dispatchEvent(new Event('dsh-mobile-native-ready'))
 
 错误 `code` 取值（与 Android 一致）：`bad_message`、`unsupported`、`unavailable`、`cancelled`、`timeout`、`payload_too_large`、`permission_denied`、`failed`。
 
+`auth.renew` 另外会回三个**凭据类**错误码，页面用它们判断「这台手机已经不被接受」并停止重连（`dsh-mobile/lib/client.js` 的 `credentialsRejected`）：`device_revoked`、`device_expired`、`authentication_failed`。**不能**把这三类统一降级成 `failed`，否则页面会一直重试。
+
 ### 5.3 `auth.renew` 的取消语义
 
 页面在 `AbortSignal` 被 abort 时：

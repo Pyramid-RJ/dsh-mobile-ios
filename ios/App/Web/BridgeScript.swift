@@ -67,7 +67,12 @@ enum BridgeScript {
         invoke: (action, input, options) => new Promise((resolve, reject) => {
           const opts = options || {};
           const requestId = opts.requestId || ('ios-' + Date.now() + '-' + Math.random().toString(36).slice(2));
-          const timeoutMs = opts.timeoutMs || 60000;
+          // docs/03 section 5.4: the page waits 305 s for an activity request
+          // (a picker or the camera can stay open), 60 s for everything else.
+          // The page never passes options, so the default has to know the action.
+          const ACTIVITY_ACTIONS = ['files.pick', 'camera.capture'];
+          const defaultTimeout = ACTIVITY_ACTIONS.indexOf(action) === -1 ? 60000 : 305000;
+          const timeoutMs = opts.timeoutMs || defaultTimeout;
 
           const timer = setTimeout(() => {
             pending.delete(requestId);

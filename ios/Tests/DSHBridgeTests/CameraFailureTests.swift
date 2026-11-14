@@ -53,6 +53,21 @@ final class BridgeFailureCodeMappingTests: XCTestCase {
         XCTAssertTrue(tracker.begin("camera-2"))
     }
 
+    /// `auth.renew` reports credential failures with the page's own vocabulary,
+    /// because that is what stops its reconnect loop (docs/11 section 2.1).
+    func testRenewalFailureCodesAreTheOnesThePageChecks() throws {
+        let codes: [BridgeFailureCode] = [.deviceRevoked, .deviceExpired, .authenticationFailed]
+        for code in codes {
+            let reply = BridgeReply.failure(requestId: "r", code: code, message: "gone")
+            let data = try XCTUnwrap(reply.json().data(using: .utf8))
+            let object = try XCTUnwrap(JSONSerialization.jsonObject(with: data) as? [String: Any])
+            XCTAssertEqual(object["code"] as? String, code.rawValue)
+        }
+        XCTAssertEqual(BridgeFailureCode.deviceRevoked.rawValue, "device_revoked")
+        XCTAssertEqual(BridgeFailureCode.deviceExpired.rawValue, "device_expired")
+        XCTAssertEqual(BridgeFailureCode.authenticationFailed.rawValue, "authentication_failed")
+    }
+
     /// The diagnostics request is host-only: it must never become a capability
     /// the page can see (docs/03 section 6.2).
     func testDiagnosticsIsNotAnAdvertisedCapability() {

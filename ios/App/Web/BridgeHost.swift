@@ -78,6 +78,21 @@ final class BridgeHost: NSObject, WKScriptMessageHandler {
         }
     }
 
+    /// The page's own vocabulary for a renewal that failed for a credential
+    /// reason (dsh-mobile `client.js`, `credentialsRejected`).
+    static func bridgeCode(for failure: MobileAccessFailure) -> BridgeFailureCode {
+        switch failure {
+        case .deviceRevoked:
+            return .deviceRevoked
+        case .deviceExpired:
+            return .deviceExpired
+        case .pairingExpired:
+            return .authenticationFailed
+        default:
+            return .failed
+        }
+    }
+
     private func isTrusted(origin security: WKSecurityOrigin) -> Bool {
         security.host == origin.host
             && security.port == origin.effectivePort
@@ -97,7 +112,13 @@ final class BridgeHost: NSObject, WKScriptMessageHandler {
                 }
                 return BridgeReply.success(requestId: request.requestId, value: ["renewed": true])
             } catch let failure as MobileAccessFailure {
-                return BridgeReply.failure(requestId: request.requestId, code: .failed, message: failure.description)
+                // The page treats these three as "this credential is gone" and
+                // stops retrying; anything else stays a generic failure.
+                return BridgeReply.failure(
+                    requestId: request.requestId,
+                    code: Self.bridgeCode(for: failure),
+                    message: failure.description
+                )
             } catch {
                 return BridgeReply.failure(requestId: request.requestId, code: .failed, message: error.localizedDescription)
             }

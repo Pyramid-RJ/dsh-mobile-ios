@@ -14,6 +14,11 @@ public enum BridgeLimits {
 }
 
 /// Error codes the page understands (docs/03 section 5.2).
+///
+/// The first three are only produced by `auth.renew`: the page checks them to
+/// decide that this phone's credential is gone and it should stop retrying
+/// (dsh-mobile `client.js`, `credentialsRejected`). Reporting them as `failed`
+/// leaves the page looping forever.
 public enum BridgeFailureCode: String, Equatable, Sendable {
     case badMessage = "bad_message"
     case unsupported
@@ -23,6 +28,12 @@ public enum BridgeFailureCode: String, Equatable, Sendable {
     case payloadTooLarge = "payload_too_large"
     case permissionDenied = "permission_denied"
     case failed
+    /// The computer removed this device.
+    case deviceRevoked = "device_revoked"
+    /// The device credential expired.
+    case deviceExpired = "device_expired"
+    /// The gateway no longer knows this device token.
+    case authenticationFailed = "authentication_failed"
 }
 
 /// Actions the shell can advertise. The page hides features by checking this

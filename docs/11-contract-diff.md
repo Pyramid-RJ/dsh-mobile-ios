@@ -23,7 +23,7 @@
 
 ## 2 差异
 
-### 2.1 `auth.renew` 的失败码不匹配（**真实缺口**）
+### 2.1 `auth.renew` 的失败码不匹配（**已在 0.9.20 修复**）
 
 页面（9235）：
 
@@ -35,9 +35,9 @@ credentialsRejected = error.code === "device_revoked"
 
 壳（`BridgeHost.handle` 的 `authRenew` 分支）任何失败都回 `code: "failed"`。于是页面**永远看不到**这三个码，`credentialsRejected` 一直是 false——续期被拒时页面不会进入「凭据失效」分支，只会继续重试。
 
-修法：给 `BridgeFailureCode` 增加 `device_revoked` / `device_expired` / `authentication_failed` 三个值，`authRenew` 失败时按 `MobileAccessFailure` 映射（`.deviceRevoked` → `device_revoked`，`.deviceExpired` → `device_expired`，`.pairingExpired` → `authentication_failed`）。
+**修复（0.9.20）**：`BridgeFailureCode` 增加 `device_revoked` / `device_expired` / `authentication_failed`；`BridgeHost.bridgeCode(for:)` 把 `MobileAccessFailure` 映射过去（`.pairingExpired` → `authentication_failed`），单测覆盖三个码的原始值。
 
-### 2.2 活动类请求的超时短了一半（**真实缺口**）
+### 2.2 活动类请求的超时短了一半（**已在 0.9.20 修复**）
 
 页面契约（docs/03 §5.4）：`files.pick` / `camera.capture` 的页面侧超时是 **305 s**，其它 60 s。
 
@@ -49,7 +49,7 @@ const timeoutMs = opts.timeoutMs || 60000;   // BridgeScript.swift
 
 所以选文件超过 60 s 时，**JS 侧先超时**（native 还在等），页面报 timeout，回执回来时 pending 已经删掉。相机有原生 60 s 兜底，问题不大；`files.pick` 是真问题。
 
-修法：适配层按 action 选默认超时——`files.pick` / `camera.capture` 用 305 s，其余 60 s。
+**修复（0.9.20）**：适配层按 action 取默认超时——`files.pick` / `camera.capture` 用 305 s，其余 60 s。
 
 ### 2.3 文件回执的形状与上游不同（能跑，但不是契约形状）
 
