@@ -57,6 +57,8 @@ enum BridgeScript {
       window.__DSH_MOBILE_NATIVE_DELIVER__ = deliver;
 
       const capabilities = __CAPABILITIES__;
+      // Readable without awaiting the promise, for the in-app self-check.
+      window.__DSH_MOBILE_CAPABILITIES__ = capabilities.slice();
 
       const notify = (event) => {
         try { handler.postMessage(JSON.stringify({ version: 1, event: event })); } catch (e) {}

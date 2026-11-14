@@ -12,6 +12,9 @@ import DSHTrust
 /// WKScriptMessageHandler gives no origin guarantee, so the frame and its
 /// security origin are checked here (docs/02 section 4.3).
 final class BridgeHost: NSObject, WKScriptMessageHandler {
+    /// What the shell advertised to the page; the self-check compares it with
+    /// what the page actually received.
+    let capabilities: BridgeCapabilities
     private let origin: GatewayOrigin
     private let evaluator: any GatewayTrustEvaluating
     private let deviceToken: String?
@@ -36,8 +39,10 @@ final class BridgeHost: NSObject, WKScriptMessageHandler {
         evaluator: any GatewayTrustEvaluating,
         deviceToken: String?,
         onSwitchComputer: (() -> Void)? = nil,
-        onDeviceRevoked: (() -> Void)? = nil
+        onDeviceRevoked: (() -> Void)? = nil,
+        capabilities: BridgeCapabilities = BridgeCapabilities(implemented: [])
     ) {
+        self.capabilities = capabilities
         self.origin = origin
         self.evaluator = evaluator
         self.deviceToken = deviceToken

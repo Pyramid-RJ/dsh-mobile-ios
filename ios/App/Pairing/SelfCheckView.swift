@@ -185,10 +185,12 @@ struct SelfCheckView: View {
         let script = """
         (function () {
           var meta = document.querySelector('meta[name="dsh-mobile-gateway"]');
+          var caps = window.__DSH_MOBILE_CAPABILITIES__;
           return [
             'frontend=' + String(window.__DSH_MOBILE_FRONTEND__),
             'gateway=' + (meta ? meta.getAttribute('content') : 'none'),
-            'bridge=' + (typeof window.__DSH_MOBILE_NATIVE__)
+            'bridge=' + (typeof window.__DSH_MOBILE_NATIVE__),
+            'capabilities=' + (Array.isArray(caps) ? caps.join(',') : 'none')
           ].join(' | ');
         })();
         """
@@ -201,7 +203,14 @@ struct SelfCheckView: View {
             return Row(title: "页面", detail: "无法读取页面标记", level: .warn)
         }
         let dedicated = value.contains("frontend=dedicated")
-        return Row(title: "页面", detail: value, level: dedicated ? .pass : .warn)
+        let expected = host.capabilities.values.joined(separator: ",")
+        let advertised = value.components(separatedBy: "capabilities=").last ?? ""
+        let matches = advertised == expected
+        return Row(
+            title: "页面",
+            detail: value + (matches ? "" : "（期望能力表 " + expected + "）"),
+            level: dedicated && matches ? .pass : .warn
+        )
     }
 
     // MARK: - Presentation

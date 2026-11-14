@@ -117,29 +117,32 @@ struct GatewayWebView: UIViewRepresentable {
     final class Coordinator: NSObject, WKNavigationDelegate {
         let bridgeHost: BridgeHost
         /// Only what a handler can actually serve (docs/03 section 6.2).
-        let capabilities = BridgeCapabilities(implemented: [
-            .authRenew,
-            .switchComputer,
-            .clipboardRead,
-            .clipboardWrite,
-            .displayScaleGet,
-            .displayScaleSet,
-            .share,
-            .filesPick,
-            .cameraCapture,
-            .deviceRevoked,
-        ])
+        let capabilities: BridgeCapabilities
 
         private let evaluator: any GatewayTrustEvaluating
 
         init(session: BrowserSession, onSwitchComputer: (() -> Void)?, onDeviceRevoked: (() -> Void)?) {
             evaluator = session.evaluator
+            let advertised = BridgeCapabilities(implemented: [
+                .authRenew,
+                .switchComputer,
+                .clipboardRead,
+                .clipboardWrite,
+                .displayScaleGet,
+                .displayScaleSet,
+                .share,
+                .filesPick,
+                .cameraCapture,
+                .deviceRevoked,
+            ])
+            capabilities = advertised
             bridgeHost = BridgeHost(
                 origin: session.origin,
                 evaluator: session.evaluator,
                 deviceToken: session.deviceToken,
                 onSwitchComputer: onSwitchComputer,
-                onDeviceRevoked: onDeviceRevoked
+                onDeviceRevoked: onDeviceRevoked,
+                capabilities: advertised
             )
             super.init()
         }
