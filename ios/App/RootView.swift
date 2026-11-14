@@ -35,6 +35,19 @@ struct RootView: View {
                     LabeledContent("配对与网页", value: "未实现（P1）")
                 }
 
+                if case .revoked(let name) = model.connection {
+                    Section {
+                        VStack(alignment: .leading, spacing: 6) {
+                            Label("「\(name)」已移除本机设备", systemImage: "exclamationmark.triangle.fill")
+                                .font(.footnote.weight(.semibold))
+                                .foregroundStyle(.orange)
+                            Text("电脑端不再接受这台手机。请重新配对，或在设备列表里删除这条记录。")
+                                .font(.footnote)
+                                .foregroundStyle(.secondary)
+                        }
+                    }
+                }
+
                 Section("解析配对输入") {
                     TextField(
                         "https://host:3443/mobile-access/pair#token=…",
@@ -52,6 +65,27 @@ struct RootView: View {
                 }
 
                 Section("已配对") {
+                    if model.isAwaitingRecoveryDecision {
+                        // P1-12: the Keychain outlived the app; ask before using it.
+                        VStack(alignment: .leading, spacing: 8) {
+                            Label("检测到 \(model.pendingRecovery.count) 台旧配对记录", systemImage: "questionmark.folder")
+                                .font(.footnote.weight(.semibold))
+                            Text("这些记录来自上一次安装。恢复后可以直接连接，清除则需要重新配对。")
+                                .font(.footnote)
+                                .foregroundStyle(.secondary)
+                            HStack {
+                                Button("恢复") {
+                                    Task { await model.resolveRecovery(keep: true) }
+                                }
+                                .buttonStyle(.borderedProminent)
+                                Button("清除", role: .destructive) {
+                                    Task { await model.resolveRecovery(keep: false) }
+                                }
+                                .buttonStyle(.bordered)
+                            }
+                        }
+                    }
+
                     if model.devices.isEmpty {
                         Text("还没有配对的电脑")
                             .font(.footnote)

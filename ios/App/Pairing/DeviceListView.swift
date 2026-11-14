@@ -95,6 +95,9 @@ struct DeviceListView: View {
                 HStack(spacing: 6) {
                     Text(device.displayName)
                         .font(.body.weight(.medium))
+                    if model.revoked.contains(device.id) {
+                        badge("已移除", color: .red)
+                    }
                     if device.isExpired() {
                         badge("已过期", color: .red)
                     }
@@ -145,6 +148,13 @@ struct DeviceListView: View {
                 Task { await model.checkReachability(device) }
             } label: {
                 Label("测试连接", systemImage: "antenna.radiowaves.left.and.right")
+            }
+            if model.revoked.contains(device.id) {
+                Button {
+                    model.clearRevoked(device)
+                } label: {
+                    Label("清除移除标记", systemImage: "arrow.clockwise")
+                }
             }
             Divider()
             Button(role: .destructive) {

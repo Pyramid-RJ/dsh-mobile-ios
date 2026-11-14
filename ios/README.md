@@ -79,7 +79,8 @@ didFinish 页面加载完成
 | S-1：固定私有 CA 的可行性 | P0 | ✅ 2026-11-13 真机通过（iPhone，iOS 27.0.1） |
 | native-pair / renew / probe、CA 固定、Cookie 注入 | P1 | ✅ 2026-11-13 真机通过：配对后可直接打开 DSH 页面 |
 | 启动自动恢复（US-4） | P1 | ✅ 2026-11-13 真机通过：杀进程重开后自动连上 |
-| Keychain 设备表、设备列表、可达性 | P2 | 代码就绪（列表 / 重命名 / 置顶 / 删除 / 可达性探测），待真机验证 |
+| Keychain 设备表、设备列表、可达性 | P2 | ✅ 0.9.4 真机：删除记录生效（P1-10）；列表 / 重命名 / 置顶 / 可达性探测待逐条验证 |
+| 重装残留恢复（P1-12）、撤销检测（P0-09） | P2 | 代码就绪（0.9.5）：重装后提示「检测到旧配对记录」可恢复或清除；`device_revoked` 显示「已移除」并停止自动重连 |
 | 页面桥（`__DSH_MOBILE_NATIVE__`、`auth.renew`、诚实能力表） | P3 | ✅ 真机通过：`frontend=dedicated`、页面主动探测能力表 |
 | `clipboard.*`、`mobile.display-scale.*`、`mobile.switch-computer` | P3 | ✅ 真机通过（缩放持久化、长按抽屉开关切换电脑） |
 | `camera.capture` | P3 | ✅ 2026-11-14 真机通过（0.9.2）：`presenting` → `shutter 3024x4032 jpeg 1575040B after 13.3s` → `reply ok`，照片进入对话；权限被拒路径同样通过（0.9.3，`permission_denied`，不重复弹询问） |

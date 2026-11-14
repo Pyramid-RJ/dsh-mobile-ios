@@ -25,14 +25,32 @@ final class AppModel: ObservableObject {
         case unreachable(String)
     }
 
+    /// Where the app stands with the stored computers.
+    enum Connection: Equatable {
+        case idle
+        case connecting(String)
+        case connected(String)
+        /// The computer no longer accepts this device (docs/06 P0-09).
+        case revoked(String)
+        case failed(String, String)
+    }
+
     @Published private(set) var devices: [DeviceRecord] = []
     @Published private(set) var status = "未加载"
     @Published private(set) var session: BrowserSession?
     @Published private(set) var log: [String] = []
     @Published private(set) var reachability: [UUID: Reachability] = [:]
+    @Published private(set) var connection: Connection = .idle
+    /// Records found on a fresh install: the user picks keep or discard (P1-12).
+    @Published private(set) var pendingRecovery: [DeviceRecord] = []
+    /// Computers that answered `device_revoked`; they are not auto-connected.
+    @Published private(set) var revoked: Set<UUID> = []
 
     private let store = KeychainDeviceRecordStore()
     private var book = DeviceRecordBook()
+
+    /// True while the "old credentials found" prompt is unanswered.
+    var isAwaitingRecoveryDecision: Bool { !pendingRecovery.isEmpty }
 
     func restore() async {
         do {
@@ -43,12 +61,36 @@ final class AppModel: ObservableObject {
             return
         }
 
-        guard let first = devices.first else {
-            status = "还没有配对的电脑"
+        // A fresh install that still finds records means the Keychain outlived
+        // the app: ask before touching them (docs/06 P1-12).
+        let firstLaunch = InstallMarker.consumeFirstLaunch()
+        if InstallRecovery.shouldOfferRecovery(firstLaunchAfterInstall: firstLaunch, recordCount: devices.count) {
+            pendingRecovery = devices
+            status = "检测到 \(devices.count) 台旧配对记录"
+            return
+        }
+
+        guard let first = devices.first(where: { !revoked.contains($0.id) }) else {
+            status = devices.isEmpty ? "还没有配对的电脑" : "所有电脑都已移除本机设备"
             return
         }
         await connect(first)
     }
+
+    /// Answers the P1-12 prompt: keep the old credentials, or start clean.
+    func resolveRecovery(keep: Bool) async {
+        let records = pendingRecovery
+        pendingRecovery = []
+        guard keep else {
+            forgetAll()
+            return
+        }
+        status = "已恢复 \(records.count) 台配对记录"
+        if let first = records.first {
+            await connect(first)
+        }
+    }
+
 
     // MARK: - List edits
 
@@ -65,8 +107,10 @@ final class AppModel: ObservableObject {
     func remove(_ record: DeviceRecord) {
         book.remove(id: record.id)
         reachability[record.id] = nil
+        revoked.remove(record.id)
         if session?.origin.description == record.origin {
             session = nil
+            connection = .idle
         }
         persist()
     }
@@ -114,6 +158,7 @@ final class AppModel: ObservableObject {
         session = nil
         log = []
         status = "连接 " + record.displayName + "…"
+        connection = .connecting(record.displayName)
 
         do {
             if record.isExpired() {
@@ -127,24 +172,40 @@ final class AppModel: ObservableObject {
             let renewed = try await client.renew(deviceToken: record.deviceToken)
             append("renew ok，会话到期 " + ISO8601DateFormatter().string(from: renewed.sessionExpiresAt))
 
+            let origin = try PairingLink.parse(record.origin).origin
             session = BrowserSession(
-                origin: try PairingLink.parse(record.origin).origin,
+                origin: origin,
                 evaluator: try evaluator(for: record),
-                cookies: SessionCookiePlan.cookies(
-                    for: try PairingLink.parse(record.origin).origin,
-                    session: renewed
-                ),
+                cookies: SessionCookiePlan.cookies(for: origin, session: renewed),
                 deviceToken: record.deviceToken
             )
             reachability[record.id] = .reachable
+            revoked.remove(record.id)
+            connection = .connected(record.displayName)
             book.markConnected(id: record.id)
             persist()
             status = "已连接 " + record.displayName
+        } catch let failure as MobileAccessFailure where failure == .deviceRevoked {
+            // P0-09: the computer dropped this device. Stop, say so, and never
+            // auto-reconnect to it until it is paired again.
+            revoked.insert(record.id)
+            connection = .revoked(record.displayName)
+            reachability[record.id] = .unreachable("电脑端已移除")
+            status = "「" + record.displayName + "」已移除本机设备，请重新配对或删除记录"
+            append("revoked: " + record.displayName)
         } catch {
             status = "连接失败：" + error.localizedDescription
+            connection = .failed(record.displayName, Self.shortReason(error))
             reachability[record.id] = .unreachable(Self.shortReason(error))
             append("error: " + String(describing: error))
         }
+    }
+
+    /// Re-pairing the same computer clears its revoked mark.
+    func clearRevoked(_ record: DeviceRecord) {
+        revoked.remove(record.id)
+        connection = .idle
+        status = "已清除「" + record.displayName + "」的移除标记，可重新配对"
     }
 
     func forgetAll() {
@@ -152,7 +213,10 @@ final class AppModel: ObservableObject {
         book = DeviceRecordBook()
         devices = []
         reachability = [:]
+        revoked = []
+        pendingRecovery = []
         session = nil
+        connection = .idle
         status = "已清除本机配对记录"
     }
 
