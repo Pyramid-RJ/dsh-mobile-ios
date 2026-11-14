@@ -144,7 +144,10 @@ struct RootView: View {
 
                 Section("配对") {
                     Button("配对并打开") {
-                        Task { await pairing.pair(input: input) }
+                        Task {
+                            await pairing.pair(input: input)
+                            adoptPairingIfSucceeded()
+                        }
                     }
                     .disabled(input.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
 
@@ -200,7 +203,17 @@ struct RootView: View {
         }
         input = trimmed
         parse()
-        Task { await pairing.pair(input: trimmed) }
+        Task {
+            await pairing.pair(input: trimmed)
+            adoptPairingIfSucceeded()
+        }
+    }
+
+    /// A finished pairing wrote a fresh record: let the device list pick it up
+    /// and drop any "removed" mark the same computer carried.
+    private func adoptPairingIfSucceeded() {
+        guard let session = pairing.session else { return }
+        model.adoptPairedGateway(origin: session.origin.description)
     }
 
     /// True only for something that can actually pair: a `dsh1./dsh2.` key, or a

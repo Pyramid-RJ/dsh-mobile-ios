@@ -71,7 +71,14 @@ final class AppModel: ObservableObject {
         }
 
         guard let first = devices.first(where: { !revoked.contains($0.id) }) else {
-            status = devices.isEmpty ? "还没有配对的电脑" : "所有电脑都已移除本机设备"
+            // Nothing left to connect to: say it on the banner too, not only in
+            // the status line, so a launch after a revocation is not silent.
+            if let revokedRecord = devices.first {
+                connection = .revoked(revokedRecord.displayName)
+                status = "「" + revokedRecord.displayName + "」已移除本机设备，请重新配对或删除记录"
+            } else {
+                status = "还没有配对的电脑"
+            }
             return
         }
         await connect(first)
@@ -210,6 +217,27 @@ final class AppModel: ObservableObject {
         connection = .revoked(record.displayName)
         session = nil
         status = "「" + record.displayName + "」已移除本机设备，请重新配对或删除记录"
+    }
+
+    /// A successful pairing proves the computer accepts this phone again.
+    /// Reload the stored book (pairing wrote it) and drop the revoked mark for
+    /// that gateway, so the badge and the banner disappear without a relaunch.
+    func adoptPairedGateway(origin: String) {
+        do {
+            book = try store.load()
+        } catch {
+            status = "读取配对记录失败：" + error.localizedDescription
+            return
+        }
+        devices = book.records
+        if let record = devices.first(where: { $0.origin == origin }) {
+            revoked.remove(record.id)
+            reachability[record.id] = .unknown
+        }
+        if case .revoked = connection {
+            connection = .idle
+        }
+        status = "已重新配对 " + origin
     }
 
     /// Re-pairing the same computer clears its revoked mark.
