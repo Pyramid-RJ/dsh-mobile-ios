@@ -1,4 +1,5 @@
 import Foundation
+import DSHBridge
 
 /// The page zoom the user picked, kept across launches.
 @MainActor
