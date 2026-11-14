@@ -51,7 +51,7 @@ const timeoutMs = opts.timeoutMs || 60000;   // BridgeScript.swift
 
 **修复（0.9.20）**：适配层按 action 取默认超时——`files.pick` / `camera.capture` 用 305 s，其余 60 s。
 
-### 2.3 文件回执的形状与上游不同（能跑，但不是契约形状）
+### 2.3 文件回执的形状与上游不同（**已在 0.9.22 修复**）
 
 页面（17153）：
 
@@ -66,13 +66,15 @@ const materializeNativeFile = (value) => {
 
 风险：如果哪天适配层没注入（或顺序变了），页面收到的是 `{__file:…}`，`materializeNativeFile` 判不出 `base64`，会把它当普通对象塞进附件——静默坏掉。
 
-修法：原生直接回扁平 `{name, mime, base64}`，适配层的 `decodeFile` 变成兼容旧形状的兜底。
+**修复（0.9.22）**：原生改回扁平 `{name, mime, base64}`；适配层的 `decodeFile` 同时接受新形状与旧的 `{__file:…}`，并补齐 `mime` 缺省值。
 
-### 2.4 `auth.renew` 的取消只停在 JS 侧（小缺口）
+### 2.4 `auth.renew` 的取消只停在 JS 侧（**已在 0.9.22 修复**）
 
 页面用 `adapter.invoke("auth.renew", {}, { signal })`（9290），abort 时我们的适配层只是**本地 reject 并从 pending 删除**，没有通知原生（docs/03 §5.3 的 `auth.renew.cancel` 事件没实现）。原生的 `URLSession` 会继续跑完，回执回来时无人接收。
 
 影响：一次被放弃的续期仍会占用网络与 20 s 超时窗口；不会出错，只是浪费。
+
+**修复（0.9.22）**：适配层在 abort 时发 `{event:'auth.renew.cancel', requestId}`；`BridgeHost` 按 requestId 记录在途 `URLSession`，收到取消就 `invalidateAndCancel()`，并把这次回执标成 `cancelled`（取消优先于传输层报出的错误）。
 
 ### 2.5 未实现的可选契约
 

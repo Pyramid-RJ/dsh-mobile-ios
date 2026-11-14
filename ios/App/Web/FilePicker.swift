@@ -9,14 +9,14 @@ struct PickedFile {
     let mime: String
     let data: Data
 
-    /// The page materialises this into a real File (see BridgeScript.decodeFile).
+    /// The flat shape the page materialises into a real `File`
+    /// (dsh-mobile `client.js`, `materializeNativeFile`): `{name, mime, base64}`.
+    /// The adapter still understands the older `{__file: {...}}` wrapper.
     var bridgeValue: [String: Any] {
         [
-            "__file": [
-                "name": name,
-                "mime": mime,
-                "base64": data.base64EncodedString(),
-            ],
+            "name": name,
+            "mime": mime,
+            "base64": data.base64EncodedString(),
         ]
     }
 }

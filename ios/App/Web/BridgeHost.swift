@@ -23,6 +23,11 @@ final class BridgeHost: NSObject, WKScriptMessageHandler {
     /// The capture in flight, so a second request replaces it instead of
     /// stacking a second camera on top of the first.
     private var activeCapture: CameraCapture?
+    /// Renewal sessions in flight, so the page's cancel can actually stop them.
+    private var renewSessions: [String: URLSession] = [:]
+    /// Renewals the page abandoned; the transport reports the abort as a plain
+    /// transport error, so the request has to remember that it was cancelled.
+    private var cancelledRenews: Set<String> = []
 
     weak var webView: WKWebView?
 
@@ -50,6 +55,9 @@ final class BridgeHost: NSObject, WKScriptMessageHandler {
         if let object = try? JSONSerialization.jsonObject(with: Data(text.utf8)) as? [String: Any],
            let event = object["event"] as? String {
             appendLog("event " + event)
+            if event == "auth.renew.cancel", let requestId = object["requestId"] as? String {
+                cancelRenew(requestId)
+            }
             return
         }
 
@@ -103,7 +111,7 @@ final class BridgeHost: NSObject, WKScriptMessageHandler {
         switch request.action {
         case BridgeAction.authRenew.rawValue:
             do {
-                let renewed = try await renew()
+                let renewed = try await renew(requestId: request.requestId)
                 if let webView {
                     await CookieInstaller.install(
                         SessionCookiePlan.cookies(for: origin, session: renewed),
@@ -111,15 +119,24 @@ final class BridgeHost: NSObject, WKScriptMessageHandler {
                     )
                 }
                 return BridgeReply.success(requestId: request.requestId, value: ["renewed": true])
-            } catch let failure as MobileAccessFailure {
-                // The page treats these three as "this credential is gone" and
-                // stops retrying; anything else stays a generic failure.
-                return BridgeReply.failure(
-                    requestId: request.requestId,
-                    code: Self.bridgeCode(for: failure),
-                    message: failure.description
-                )
             } catch {
+                // A cancel wins over whatever error the aborted request produced.
+                if cancelledRenews.remove(request.requestId) != nil {
+                    return BridgeReply.failure(
+                        requestId: request.requestId,
+                        code: .cancelled,
+                        message: "the page cancelled the renewal"
+                    )
+                }
+                if let failure = error as? MobileAccessFailure {
+                    // The page treats these three as "this credential is gone"
+                    // and stops retrying; anything else stays a generic failure.
+                    return BridgeReply.failure(
+                        requestId: request.requestId,
+                        code: Self.bridgeCode(for: failure),
+                        message: failure.description
+                    )
+                }
                 return BridgeReply.failure(requestId: request.requestId, code: .failed, message: error.localizedDescription)
             }
         case BridgeAction.deviceRevoked.rawValue:
@@ -291,7 +308,7 @@ final class BridgeHost: NSObject, WKScriptMessageHandler {
         _ = try? await webView.evaluateJavaScript(script)
     }
 
-    private func renew() async throws -> SessionCredential {
+    private func renew(requestId: String) async throws -> SessionCredential {
         guard let deviceToken else {
             throw MobileAccessFailure.pairingExpired
         }
@@ -299,7 +316,11 @@ final class BridgeHost: NSObject, WKScriptMessageHandler {
         let configuration = URLSessionConfiguration.ephemeral
         configuration.timeoutIntervalForRequest = 20
         let urlSession = URLSession(configuration: configuration, delegate: delegate, delegateQueue: nil)
-        defer { urlSession.finishTasksAndInvalidate() }
+        renewSessions[requestId] = urlSession
+        defer {
+            renewSessions[requestId] = nil
+            urlSession.finishTasksAndInvalidate()
+        }
 
         let client = MobileAccessClient(
             origin: origin,
@@ -307,6 +328,15 @@ final class BridgeHost: NSObject, WKScriptMessageHandler {
             expectedInstanceId: nil
         )
         return try await client.renew(deviceToken: deviceToken)
+    }
+
+    /// The page gave up on a renewal: stop the request instead of letting it run
+    /// to completion for a reply nobody will read (docs/03 section 5.3).
+    private func cancelRenew(_ requestId: String) {
+        guard let session = renewSessions.removeValue(forKey: requestId) else { return }
+        cancelledRenews.insert(requestId)
+        appendLog("auth.renew cancelled", detail: requestId)
+        session.invalidateAndCancel()
     }
 
     /// Lets the in-app diagnostics screen read device facts through the same

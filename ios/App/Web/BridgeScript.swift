@@ -23,16 +23,19 @@ enum BridgeScript {
       const pending = new Map();
       window.__DSH_MOBILE_NATIVE_STATE__ = { pending };
 
-      // camera.capture / files.pick expect a real File (value instanceof File),
-      // so a reply carrying {__file: {...}} is materialised here instead of
-      // being handed to the page as plain JSON.
+      // camera.capture / files.pick expect a real File (value instanceof File).
+      // The native side replies with the contract shape {name, mime, base64},
+      // which the page's own materializeNativeFile would also convert; doing it
+      // here keeps the File available to every caller. The older {__file: {...}}
+      // wrapper is still accepted so an older build keeps working.
       const decodeFile = (value) => {
-        if (!value || typeof value !== 'object' || !value.__file) { return value; }
-        const file = value.__file;
+        if (!value || typeof value !== 'object') { return value; }
+        const file = value.__file || (value.base64 && value.name ? value : null);
+        if (!file) { return value; }
         const binary = atob(file.base64);
         const bytes = new Uint8Array(binary.length);
         for (let index = 0; index < binary.length; index += 1) { bytes[index] = binary.charCodeAt(index); }
-        return new File([bytes], file.name, { type: file.mime });
+        return new File([bytes], file.name, { type: file.mime || 'application/octet-stream' });
       };
 
       const deliver = (raw) => {
@@ -88,6 +91,9 @@ enum BridgeScript {
               if (!pending.has(requestId)) { return; }
               pending.delete(requestId);
               clearTimeout(timer);
+              // Tell native, so a renewal in flight is actually cancelled
+              // instead of running to completion for nobody (docs/03 5.3).
+              try { handler.postMessage(JSON.stringify({ version: 1, event: 'auth.renew.cancel', requestId: requestId })); } catch (e) {}
               const failure = new Error('cancelled');
               failure.code = 'cancelled';
               reject(failure);
