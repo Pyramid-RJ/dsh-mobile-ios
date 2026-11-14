@@ -32,7 +32,7 @@ public enum X509Validity {
               let notAfter = tlv(bytes, notBefore.end) else {
             return nil
         }
-        return time(bytes, notBefore) ?? time(bytes, notAfter)
+        return time(bytes, notAfter)
     }
 
     /// `notBefore`, for completeness and for diagnostics.
