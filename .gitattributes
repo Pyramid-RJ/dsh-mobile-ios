@@ -1,0 +1,26 @@
+# Line endings.
+#
+# This repository is edited on Windows and built on Linux/macOS runners. A shell
+# script committed with CRLF fails on the runner with
+# "bad interpreter: /bin/bash^M", and a JSON file committed with CRLF shows up as
+# a whole-file diff every time it is regenerated. Both happened on 2026-11-14
+# (altstore/source.json was rewritten with CRLF when it was restored by hand).
+#
+# Normalise text to LF in the repository; the checkout keeps LF too, so what is
+# committed is exactly what CI runs.
+*.sh   text eol=lf
+*.py   text eol=lf
+*.yml  text eol=lf
+*.yaml text eol=lf
+*.json text eol=lf
+*.md   text eol=lf
+*.swift text eol=lf
+*.plist text eol=lf
+*.entitlements text eol=lf
+
+# Binary: never normalise, never diff as text.
+*.png  binary
+*.jpg  binary
+*.ipa  binary
+*.cer  binary
+*.zip  binary
