@@ -238,8 +238,13 @@ struct GatewayWebView: UIViewRepresentable {
         private func publishKeyboardState(to webView: WKWebView?) {
             guard let webView else { return }
             let visible = keyboardVisible ? "true" : "false"
+            // `noHardwareKeyboard: false` keeps the page's Enter translation off:
+            // it never produced a newline on this device (the page requires
+            // inputmode != none and loses it to its own withhold), so Enter keeps
+            // its original meaning - send - and the keyboard bar's 换行 button is
+            // the explicit way to insert a line break.
             let script = "window.__DSH_MOBILE_KEYBOARD_STATE__ = { imeVisible: " + visible
-                + ", noHardwareKeyboard: true };"
+                + ", noHardwareKeyboard: false };"
             webView.evaluateJavaScript(script)
             // The page's Enter handling hangs off this value, so it has to be
             // visible in the log when it misbehaves.

@@ -192,3 +192,29 @@ editable: editor.isConnected
 - 键盘一弹起来，残留的 withhold 立刻被清掉，`editable` 恢复为 true，回车重新变成换行。
 
 `composer probe` 也补上了 `inputmode` 与 `aria-haspopup` 两个字段，下次可以直接看到是否卡住。
+
+## 11 键盘相关改动总表（2026-11-15 收尾）
+
+回车换行最终放弃：页面的换行分支要求 `imeVisible === true && noHardwareKeyboard === true && inputmode !== "none"`，而它自己的 withhold 会把 `inputmode` 写成 `none`，两者互相打架，真机上始终不稳定。**决定：回车恢复原始语义（发送）**，换行改由键盘上方工具条的「换行」按钮提供（`execCommand('insertLineBreak')`，日志验证过 `ok`）。
+
+为此壳发布的状态改成 `noHardwareKeyboard: false`——页面的换行翻译因此永不触发，回车就是发送。
+
+| 版本 | 改动 | 结果 |
+| --- | --- | --- |
+| 0.9.9 | `ComposerShim` 捕获阶段拦 pointerdown，菜单打开时阻止页面 `restore` | 键盘收起时点「+」仍会唤起；已废弃 |
+| 0.9.10 | 改为接管 `setAttribute/removeAttribute`，窗口内忽略所有 `inputmode` 写入 | 键盘收起时点「+」反而唤起（withhold 被拦）；已废弃 |
+| 0.9.11 | 只拦 withhold 不拦 restore，并发布 `__DSH_MOBILE_KEYBOARD_STATE__` | 滑菜单会唤起键盘；`inputmode="none"` 卡死；已废弃 |
+| 0.9.12 | 只拦 withhold（键盘弹着时） | 回车仍失效（根因不在拦截）；滑菜单唤起键盘 |
+| 0.9.13 | 恢复「收起时拦 restore」+ 键盘状态日志 | 键盘行为基本稳定，回车仍失效 |
+| 0.9.14 | 顶栏「换行」按钮 + `composer probe` 探针 | 换行可用；探针定位到 `inputmode` 卡死 |
+| 0.9.15 | 换行按钮移到键盘上方工具条（含「完成」） | 符合用户要求的形态 |
+| 0.9.16 | `imeVisible` 变 true 时清掉残留 `inputmode="none"` | 回车理论上恢复，但真机仍不稳定 |
+| 0.9.17 | `noHardwareKeyboard: false`，回车恢复发送；保留工具条「换行」 | 本轮最终状态 |
+
+**当前生效的行为**：
+
+- 键盘弹着时点「+」→ 不收起（0.9.13 起）；
+- 键盘收起时点「+」→ 不唤起；在菜单上滑动 → 不唤起（0.9.13 起）；
+- 回车 → **发送**（0.9.17 起）；
+- 需要换行 → 键盘上方工具条的「换行」；
+- 键盘上方工具条还有「完成」用于收起键盘。
