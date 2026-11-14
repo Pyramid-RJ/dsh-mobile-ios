@@ -23,7 +23,17 @@ struct GatewayWebViewScreen: View {
         )
             .navigationTitle(session.origin.host)
             .navigationBarTitleDisplayMode(.inline)
+            .navigationBarBackButtonHidden(true)
             .toolbar {
+                ToolbarItem(placement: .topBarLeading) {
+                    Button {
+                        goBack()
+                    } label: {
+                        Label("返回", systemImage: "chevron.left")
+                            .labelStyle(.iconOnly)
+                    }
+                    .accessibilityLabel("返回")
+                }
                 ToolbarItem(placement: .topBarTrailing) {
                     Button("桥日志") { showsLog = true }
                 }
@@ -31,6 +41,24 @@ struct GatewayWebViewScreen: View {
             .sheet(isPresented: $showsLog) {
                 BridgeLogScreen()
             }
+    }
+
+    /// Back is the page's decision first (docs/03 §7.1): if it closed a drawer,
+    /// a panel or a dialog it says so and the shell stays; otherwise the shell
+    /// leaves the page.
+    private func goBack() {
+        guard let host = BridgeHostRegistry.shared.current else {
+            dismiss()
+            return
+        }
+        host.dispatchNativeBack { handled in
+            Task { @MainActor in
+                BridgeLog.shared.append("native-back", detail: handled ? "page handled" : "leaving the page")
+                if !handled {
+                    dismiss()
+                }
+            }
+        }
     }
 }
 

@@ -339,6 +339,24 @@ final class BridgeHost: NSObject, WKScriptMessageHandler {
         session.invalidateAndCancel()
     }
 
+    /// Asks the page whether it wants to handle "back" itself (docs/03 §7.1).
+    ///
+    /// The page listens for a cancelable `dsh-mobile:native-back` event and calls
+    /// `preventDefault()` when it closed a drawer, a panel or a dialog. `true`
+    /// means the page consumed the gesture and the shell must stay put.
+    func dispatchNativeBack(completion: @escaping (Bool) -> Void) {
+        let script = """
+        (function () {
+          var event = new Event('dsh-mobile:native-back', { cancelable: true });
+          window.dispatchEvent(event);
+          return event.defaultPrevented;
+        })();
+        """
+        runInPage(script) { result in
+            completion((result as? Bool) ?? (result as? NSNumber)?.boolValue ?? false)
+        }
+    }
+
     /// Runs a snippet in the page and hands the result back. Used by the in-app
     /// self-check, which has no page action to call.
     func runInPage(_ script: String, completion: @escaping (Any?) -> Void) {
