@@ -58,11 +58,12 @@ struct GatewayWebView: UIViewRepresentable {
                 forMainFrameOnly: true
             )
         )
-        // Temporary: the composer cannot delete its command chips on iOS
-        // (docs/10). Remove once the upstream fix ships.
+        // Temporary: the composer cannot delete its command chips, and the
+        // keyboard returns over the open attachment menu (docs/10). Remove once
+        // the upstream fixes ship.
         configuration.userContentController.addUserScript(
             WKUserScript(
-                source: ComposerChipShim.script,
+                source: ComposerShim.script,
                 injectionTime: .atDocumentStart,
                 forMainFrameOnly: true
             )

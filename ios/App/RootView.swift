@@ -142,7 +142,7 @@ struct RootView: View {
                     }
                 }
 
-                Section("配对（P1）") {
+                Section("配对") {
                     Button("配对并打开") {
                         Task { await pairing.pair(input: input) }
                     }
@@ -164,20 +164,13 @@ struct RootView: View {
                     }
                 }
 
-                Section("P0 探针") {
-                    NavigationLink("S-1：WKWebView + 固定私有 CA") {
+                Section("诊断") {
+                    NavigationLink("S-1 探针：WKWebView + 固定私有 CA") {
                         S1ProbeView(initialGateway: parsedGateway ?? "", expectedInstanceId: parsedInstance)
                     }
-                }
-
-                Section("下一步") {
-                    Text("S-1：验证 WKWebView 能否用固定私有 CA 加载自签页面。")
-                    Text("这一步决定局域网路径是否成立，失败则退回纯浏览器壳。")
-                }
-
-                Section("本版本不提供") {
-                    Text("通知（免费签名无 APNs）")
-                    Text("后台事件流")
+                    Text("通知与后台事件流不提供：免费签名没有 APNs。")
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
                 }
             }
             .navigationTitle("DSH Mobile")

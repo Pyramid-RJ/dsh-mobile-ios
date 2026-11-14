@@ -62,7 +62,7 @@ iOS 上退格的时序是 **keydown → microtask → beforeinput**：
 
 ### 4.1 壳侧临时缓解（0.9.1 真机已验证）
 
-`ios/App/Web/ComposerChipShim.swift` 在文档开始时注入一个**捕获阶段**的 keydown 监听：当编辑器报告有词条被选中（根元素带 `data-composer-chip-selected`）、且按键是 `Backspace`/`Delete`、且事件发生在该编辑器内时，`stopPropagation()` 掉这次 keydown。
+`ios/App/Web/ComposerShim.swift` 在文档开始时注入一个**捕获阶段**的 keydown 监听：当编辑器报告有词条被选中（根元素带 `data-composer-chip-selected`）、且按键是 `Backspace`/`Delete`、且事件发生在该编辑器内时，`stopPropagation()` 掉这次 keydown。
 
 这样编辑器的 keydown 兜底不会排队那个清选中的 microtask，选中态保留；随后 WebKit 照常派发 `beforeinput`，`$decide` 看到「已选中」直接放行，词条被删掉。
 
@@ -130,3 +130,17 @@ iOS 端：装 0.9.0 壳 → 打开页面 → 「+」→ 计划 → 在文本框�
 - `capabilities()` 里继续报 `share` 不会造成「点了没反应的按钮」（页面根本没渲染这个按钮），但也没意义——等上游加了入口再验证。
 
 **决定（2026-11-14）**：不做壳侧入口。`share` 的实现保留（上游一旦调用即可用），但不额外造 UI；P1-04 记为「页面无入口」，不算未完成项。
+
+## 8 附件菜单弹出时键盘反复出现（2026-11-15）
+
+**现象**：在输入框里打字时点「+」想加附件，键盘收起；随后手指在弹出菜单上滑动，键盘又回来，把菜单顶掉一半；再滑动又收起——输入框反复重排，选文件体验很差。
+
+**根因**（`dsh-mobile/lib/mobile-layout.js`，0.8.8）：
+
+- 点「+」时 `applyComposerImePolicy` 判定为 `withhold`：给编辑器加 `inputmode="none"`，**不移动焦点**地收起键盘（设计如此）；
+- 但 `resolveComposerImePolicy` 对**任何其他** pointerdown 都返回 `restore`，直接删掉 `inputmode="none"`；
+- 菜单是覆盖在编辑器上的一层，手指在菜单上滑动同样触发 pointerdown → `restore` → 编辑器仍持有焦点 → 键盘重新弹出 → 布局被顶起 → 菜单显示不全。
+
+**壳侧缓解（0.9.9）**：`ComposerShim` 增加一个捕获阶段 `pointerdown` 监听——当「+」按钮 `aria-expanded="true"`（菜单开着）时，对既不在触发器上、也不在编辑器内的 pointerdown 调用 `stopImmediatePropagation()`，让页面的 `restore` 不执行；点触发器本身、点编辑器仍然按原逻辑走。
+
+**边界**：只依赖 `aria-expanded` 与 `data-composer-card` / `data-composer-input` 这几个既有属性；上游改了标记就自动失效，不会误伤。上游修好（`resolveComposerImePolicy` 在菜单打开时不返回 `restore`）之后应删除这段。
