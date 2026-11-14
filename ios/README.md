@@ -80,7 +80,8 @@ didFinish 页面加载完成
 | native-pair / renew / probe、CA 固定、Cookie 注入 | P1 | ✅ 2026-11-13 真机通过：配对后可直接打开 DSH 页面 |
 | 启动自动恢复（US-4） | P1 | ✅ 2026-11-13 真机通过：杀进程重开后自动连上 |
 | Keychain 设备表、设备列表、可达性 | P2 | 未开始 |
-| 页面桥（`__DSH_MOBILE_NATIVE__`、`auth.renew`、诚实能力表） | P3 | 代码就绪，待真机确认页面行为未回归 |
+| 页面桥（`__DSH_MOBILE_NATIVE__`、`auth.renew`、诚实能力表） | P3 | ✅ 真机通过：`frontend=dedicated`、页面主动探测能力表 |
+| `clipboard.*`、`mobile.display-scale.*`、`mobile.switch-computer` | P3 | ✅ 真机通过（缩放持久化、长按抽屉开关切换电脑） |
 | 返回键、缩放、键盘事件 | P3 | 未开始 |
 
 ## 当前已知缺口

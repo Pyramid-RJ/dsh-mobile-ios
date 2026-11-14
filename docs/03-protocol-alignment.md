@@ -157,6 +157,17 @@ window.dispatchEvent(new Event('dsh-mobile-native-ready'))
 | `mobile.display-scale.get/set` | ✅ | **[S]** | 改 `meta viewport`，公式见 [03 §6.1](#61-显示缩放公式) |
 | iroh 传输 | ✅（完整版） | **[无]** | 见 [02 §8](02-architecture.md#8-与-iroh-的关系) |
 
+### 6.0.1 切换电脑是一个长按手势（2026-11-14 对照上游 `native-mobile.ts` 确认）
+
+页面**不会**在抽屉里放「切换电脑」菜单项。触发方式是：
+
+- 长按抽屉开关（`[data-dsh-mobile-toggle]`，即左上角鲸鱼/☰ 按钮）**500 ms**（`SWITCH_COMPUTER_LONG_PRESS_MS`）；
+- 手指移动超过 **14 px**（`SWITCH_COMPUTER_MOVE_TOLERANCE_PX`）即取消，交还给抽屉滑动；
+- 首次按下时页面会调一次 `capabilities()` 探测是否支持（`probeSupport`），支持后才允许长按生效；
+- 触发后 1200 ms 内抑制合成 click，避免抽屉同时被打开。
+
+因此"抽屉里找不到切换电脑"不是能力缺失。
+
 ### 6.1 显示缩放公式
 
 与 Android `NativeDisplayScalePolicy` 完全一致：

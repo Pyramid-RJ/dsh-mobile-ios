@@ -98,6 +98,23 @@ final class BridgeHost: NSObject, WKScriptMessageHandler {
             onSwitchComputer?()
             return BridgeReply.success(requestId: request.requestId, value: ["switched": true])
 
+        case BridgeAction.share.rawValue:
+            guard let text = request.input["text"] as? String else {
+                return BridgeReply.failure(
+                    requestId: request.requestId,
+                    code: .badMessage,
+                    message: "share needs a string 'text'"
+                )
+            }
+            await MainActor.run { SharePresenter.present(text: text) }
+            return BridgeReply.success(requestId: request.requestId, value: ["shared": true])
+
+        case BridgeAction.filesPick.rawValue:
+            return await pickFile(request)
+
+        case BridgeAction.cameraCapture.rawValue:
+            return await capturePhoto(request)
+
         case BridgeAction.clipboardRead.rawValue:
             let text = await MainActor.run { UIPasteboard.general.string } ?? ""
             return BridgeReply.success(requestId: request.requestId, value: ["text": text])
@@ -142,6 +159,66 @@ final class BridgeHost: NSObject, WKScriptMessageHandler {
                 message: "action not implemented: " + request.action
             )
         }
+    }
+
+    @MainActor
+    private func presenter() -> UIViewController? {
+        let scene = UIApplication.shared.connectedScenes
+            .compactMap { $0 as? UIWindowScene }
+            .first { $0.activationState == .foregroundActive }
+        var controller = scene?.windows.first { $0.isKeyWindow }?.rootViewController
+        while let presented = controller?.presentedViewController {
+            controller = presented
+        }
+        return controller
+    }
+
+    private func pickFile(_ request: BridgeRequest) async -> BridgeReply {
+        guard let presenter = await presenter() else {
+            return BridgeReply.failure(requestId: request.requestId, code: .unavailable, message: "no presenter")
+        }
+        do {
+            let file = try await FilePicker().pick(from: presenter)
+            return BridgeReply.success(requestId: request.requestId, value: file.bridgeValue)
+        } catch let failure as PickFailure {
+            return BridgeReply.failure(
+                requestId: request.requestId,
+                code: failure == .cancelled ? .cancelled : (isTooLarge(failure) ? .payloadTooLarge : .failed),
+                message: failure.description
+            )
+        } catch {
+            return BridgeReply.failure(requestId: request.requestId, code: .failed, message: error.localizedDescription)
+        }
+    }
+
+    private func capturePhoto(_ request: BridgeRequest) async -> BridgeReply {
+        guard CameraCapture.isAvailable else {
+            return BridgeReply.failure(
+                requestId: request.requestId,
+                code: .unavailable,
+                message: "no camera on this device"
+            )
+        }
+        guard let presenter = await presenter() else {
+            return BridgeReply.failure(requestId: request.requestId, code: .unavailable, message: "no presenter")
+        }
+        do {
+            let file = try await CameraCapture().capture(from: presenter)
+            return BridgeReply.success(requestId: request.requestId, value: file.bridgeValue)
+        } catch let failure as PickFailure {
+            return BridgeReply.failure(
+                requestId: request.requestId,
+                code: failure == .cancelled ? .cancelled : (isTooLarge(failure) ? .payloadTooLarge : .failed),
+                message: failure.description
+            )
+        } catch {
+            return BridgeReply.failure(requestId: request.requestId, code: .failed, message: error.localizedDescription)
+        }
+    }
+
+    private func isTooLarge(_ failure: PickFailure) -> Bool {
+        if case .tooLarge = failure { return true }
+        return false
     }
 
     /// Rewrites the viewport meta tag the way the page expects (docs/03 section 6.1).

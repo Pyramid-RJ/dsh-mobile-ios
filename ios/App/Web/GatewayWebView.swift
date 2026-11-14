@@ -89,6 +89,9 @@ struct GatewayWebView: UIViewRepresentable {
             .clipboardWrite,
             .displayScaleGet,
             .displayScaleSet,
+            .share,
+            .filesPick,
+            .cameraCapture,
         ])
 
         private let evaluator: PinnedTrustEvaluator
