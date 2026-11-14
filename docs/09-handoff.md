@@ -76,6 +76,7 @@ ios/
 | 抽屉里找不到「切换电脑」 | 它是长按手势，不是菜单项 | 长按抽屉开关 500 ms |
 | `camera.capture` 1 s 内 `reply failed` | 旧代码在弹相机前就拒绝（`isAvailable == false` 或 `no presenter`），与权限无关 | 新包：桥日志顶部「设备诊断」+ `reply failed` 下方原因行 |
 | 改了代码但行为没变 | 装了旧包 / 没重装 | 设备诊断里的 `build` 字段 |
+| 文本框里的 `/plan`、`/goal` 词条退格删不掉 | DSH 前端命令 chip 的两步删除在 iOS WebKit 上被 keydown 兜底清掉选中态，与 iOS 壳无关 | 见 [10 上游问题记录](10-upstream-issues.md)（含绕法与建议补丁） |
 | AltStore 源里只剩 0.1.0 / 0.2.0 | release 工作流的 "Commit the source back" 用了 `git checkout -f -B main origin/main`，把未推送的本地提交连同旧内容一起提交了（2026-11-14 的 `2eb401c` 就是这样把 source.json 退回 0.2.0，+3 −51） | 已改为 `git reset --soft` + `git commit --only altstore/source.json`；source 已从 `ios-v0.8.0` 的 release 资产恢复 |
 
 ## 7 环境注意（2026-11-14 晚自检后更新）

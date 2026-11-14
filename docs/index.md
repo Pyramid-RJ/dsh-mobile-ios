@@ -18,6 +18,7 @@
 | CI 环境怎么配、怎么触发、产物怎么拿 | [08 GitHub Actions 环境](08-ci-environment.md) |
 | 怎么验收、要跑哪些用例 | [06 测试与验收](06-testing.md) |
 | 拍照（`camera.capture`）怎么测、权限怎么重置 | [09 相机测试方案](09-camera-test-plan.md) |
+| 文本框里的模式词条删不掉（不是壳的问题） | [10 上游问题记录](10-upstream-issues.md) |
 | 什么时候做什么、会卡在哪 | [07 路线图与风险](07-roadmap-and-risks.md) |
 
 ## 一句话结论

@@ -21,6 +21,8 @@ final class CameraCapture: NSObject, UIImagePickerControllerDelegate, UINavigati
 
     private var continuation: CheckedContinuation<PickedFile, Error>?
     private var timeoutTask: Task<Void, Never>?
+    /// Kept so a newer request (or the page giving up) can take the picker down.
+    private weak var presentedPicker: UIImagePickerController?
 
     static var isAvailable: Bool {
         UIImagePickerController.isSourceTypeAvailable(.camera)
@@ -62,6 +64,7 @@ final class CameraCapture: NSObject, UIImagePickerControllerDelegate, UINavigati
 
         return try await withCheckedThrowingContinuation { continuation in
             self.continuation = continuation
+            self.presentedPicker = controller
             self.timeoutTask = Task { @MainActor [weak self] in
                 try? await Task.sleep(nanoseconds: UInt64(Self.deadline * 1_000_000_000))
                 guard !Task.isCancelled else { return }
@@ -111,7 +114,46 @@ final class CameraCapture: NSObject, UIImagePickerControllerDelegate, UINavigati
     }
 
     func imagePickerControllerDidCancel(_ picker: UIImagePickerController) {
+        // A tap on 取消 and "something else was presented on top" arrive here
+        // identically. The log has to tell them apart: on 2026-11-14 three
+        // captures all came back `cancelled` and the reason was invisible.
+        BridgeLog.shared.append("camera cancelled", detail: Self.cancelReason(for: picker))
         picker.dismiss(animated: true)
+        finish(with: .failure(PickFailure.cancelled))
+    }
+
+    /// Why the picker went away, in words the log can show.
+    static func cancelReason(for picker: UIViewController) -> String {
+        let top = topMost()
+        if picker.presentingViewController == nil {
+            return "already dismissed (another presentation took over)"
+        }
+        if let top, top !== picker, !top.isBeingDismissed {
+            return "superseded by " + String(describing: type(of: top))
+        }
+        return "user tapped cancel"
+    }
+
+    /// The controller currently on screen, following the presentation chain.
+    static func topMost() -> UIViewController? {
+        let scene = UIApplication.shared.connectedScenes
+            .compactMap { $0 as? UIWindowScene }
+            .first { $0.activationState == .foregroundActive }
+        var controller = scene?.windows.first { $0.isKeyWindow }?.rootViewController
+        while let presented = controller?.presentedViewController {
+            controller = presented
+        }
+        return controller
+    }
+
+    /// Ends an in-flight capture because the page asked again (or gave up).
+    func cancel() {
+        guard continuation != nil else { return }
+        BridgeLog.shared.append("camera cancelled", detail: "superseded by a newer request")
+        // Not animated: the replacement picker is presented right after this
+        // returns, and UIKit refuses a presentation while one is in flight.
+        presentedPicker?.dismiss(animated: false)
+        presentedPicker = nil
         finish(with: .failure(PickFailure.cancelled))
     }
 
@@ -119,6 +161,7 @@ final class CameraCapture: NSObject, UIImagePickerControllerDelegate, UINavigati
     private func finish(with result: Result<PickedFile, Error>) {
         timeoutTask?.cancel()
         timeoutTask = nil
+        presentedPicker = nil
         guard let continuation else { return }
         self.continuation = nil
         continuation.resume(with: result)

@@ -17,6 +17,9 @@ final class BridgeHost: NSObject, WKScriptMessageHandler {
     private let deviceToken: String?
     private let onSwitchComputer: (() -> Void)?
     private let pending = BridgePendingTracker()
+    /// The capture in flight, so a second request replaces it instead of
+    /// stacking a second camera on top of the first.
+    private var activeCapture: CameraCapture?
 
     weak var webView: WKWebView?
 
@@ -203,8 +206,17 @@ final class BridgeHost: NSObject, WKScriptMessageHandler {
         guard let presenter = await presenter() else {
             return BridgeReply.failure(requestId: request.requestId, code: .unavailable, message: "no presenter")
         }
+        // One picker at a time. A second request used to present a second
+        // picker, which made UIKit dismiss the first one: that arrived as
+        // `cancelled` with no explanation (three such replies on 2026-11-14).
+        activeCapture?.cancel()
+        let capture = CameraCapture()
+        activeCapture = capture
+        defer {
+            if activeCapture === capture { activeCapture = nil }
+        }
         do {
-            let file = try await CameraCapture().capture(from: presenter)
+            let file = try await capture.capture(from: presenter)
             return BridgeReply.success(requestId: request.requestId, value: file.bridgeValue)
         } catch let failure as PickFailure {
             // The camera status is the one fact only the device can report, so it
