@@ -1,4 +1,5 @@
 import Foundation
+import UIKit
 import WebKit
 import DSHPairing
 import DSHBridge
@@ -96,6 +97,44 @@ final class BridgeHost: NSObject, WKScriptMessageHandler {
             // The page asked for the computer list; pop back to the app's list.
             onSwitchComputer?()
             return BridgeReply.success(requestId: request.requestId, value: ["switched": true])
+
+        case BridgeAction.clipboardRead.rawValue:
+            let text = await MainActor.run { UIPasteboard.general.string } ?? ""
+            return BridgeReply.success(requestId: request.requestId, value: ["text": text])
+
+        case BridgeAction.clipboardWrite.rawValue:
+            guard let text = request.input["text"] as? String else {
+                return BridgeReply.failure(
+                    requestId: request.requestId,
+                    code: .badMessage,
+                    message: "clipboard.write needs a string 'text'"
+                )
+            }
+            guard text.utf8.count <= BridgeLimits.maxClipboardBytes else {
+                return BridgeReply.failure(
+                    requestId: request.requestId,
+                    code: .payloadTooLarge,
+                    message: "clipboard text exceeds 256 KiB"
+                )
+            }
+            await MainActor.run { UIPasteboard.general.string = text }
+            return BridgeReply.success(requestId: request.requestId, value: ["written": true])
+
+        case BridgeAction.displayScaleGet.rawValue:
+            let percent = DisplayScaleStore.shared.percent
+            return BridgeReply.success(requestId: request.requestId, value: DisplayScalePolicy.reply(percent: percent))
+
+        case BridgeAction.displayScaleSet.rawValue:
+            guard let percent = DisplayScalePolicy.percent(from: request.input) else {
+                return BridgeReply.failure(
+                    requestId: request.requestId,
+                    code: .badMessage,
+                    message: "display scale must be an integer from 80 to 125"
+                )
+            }
+            DisplayScaleStore.shared.percent = percent
+            await applyViewport(percent: percent)
+            return BridgeReply.success(requestId: request.requestId, value: DisplayScalePolicy.reply(percent: percent))
         default:
             return BridgeReply.failure(
                 requestId: request.requestId,
@@ -103,6 +142,31 @@ final class BridgeHost: NSObject, WKScriptMessageHandler {
                 message: "action not implemented: " + request.action
             )
         }
+    }
+
+    /// Rewrites the viewport meta tag the way the page expects (docs/03 section 6.1).
+    @MainActor
+    private func applyViewport(percent: Int) async {
+        guard let webView else { return }
+        let width = Int((webView.bounds.width * UIScreen.main.scale).rounded())
+        let density = Double(UIScreen.main.scale)
+        let viewport = DisplayScalePolicy.viewportWidth(
+            nativeWidth: Double(width),
+            density: density,
+            percent: percent
+        )
+        let script = """
+        (function () {
+          var meta = document.querySelector('meta[name="viewport"]');
+          if (!meta) {
+            meta = document.createElement('meta');
+            meta.setAttribute('name', 'viewport');
+            document.head.appendChild(meta);
+          }
+          meta.setAttribute('content', 'width=(viewport), initial-scale=1');
+        })();
+        """
+        _ = try? await webView.evaluateJavaScript(script)
     }
 
     private func renew() async throws -> SessionCredential {

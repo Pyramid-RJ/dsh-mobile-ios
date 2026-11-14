@@ -9,6 +9,8 @@ public enum BridgeLimits {
     public static let maxReplyBytes = 12 * 1024 * 1024
     public static let maxPendingRequests = 16
     public static let maxRequestIdLength = 128
+    /// Clipboard cap from docs/03 section 6.
+    public static let maxClipboardBytes = 256 * 1024
 }
 
 /// Error codes the page understands (docs/03 section 5.2).

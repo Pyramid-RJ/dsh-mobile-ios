@@ -82,7 +82,14 @@ struct GatewayWebView: UIViewRepresentable {
     final class Coordinator: NSObject, WKNavigationDelegate {
         let bridgeHost: BridgeHost
         /// Only what a handler can actually serve (docs/03 section 6.2).
-        let capabilities = BridgeCapabilities(implemented: [.authRenew, .switchComputer])
+        let capabilities = BridgeCapabilities(implemented: [
+            .authRenew,
+            .switchComputer,
+            .clipboardRead,
+            .clipboardWrite,
+            .displayScaleGet,
+            .displayScaleSet,
+        ])
 
         private let evaluator: PinnedTrustEvaluator
 
