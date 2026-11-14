@@ -10,12 +10,14 @@ import Foundation
 ///    afterwards as `beforeinput`, so the chip is reselected forever. Keeping
 ///    that one keydown away from the editor lets the input event delete it.
 ///
-/// 2. **The keyboard comes back over the open attachment menu.** The mobile
-///    layout withholds the IME (`inputmode="none"`) when the Add trigger is
-///    pressed, then restores it on *any* other pointerdown — including a finger
-///    sliding over the menu it just opened. The keyboard then covers the menu,
-///    the layout reflows, and the next slide hides it again. While the menu is
-///    open, the restore is suppressed so the menu stays put.
+/// 2. **The keyboard changes state whenever the composer controls are touched.**
+///    The mobile layout withholds the IME (`inputmode="none"`) when the Add
+///    trigger is pressed and restores it on any other pointerdown, so opening
+///    the attachment menu drops the keyboard and sliding over the menu brings it
+///    back. Each flip reflows the composer, which is slow. The fix is to ignore
+///    those `inputmode` writes while the user is working in the composer: the
+///    keyboard then simply stays as it is. Writes made outside that window (for
+///    example the drawer's own IME handling) still go through.
 enum ComposerShim {
     static let script = """
     (() => {
@@ -30,25 +32,45 @@ enum ComposerShim {
         event.stopPropagation();
       }, true);
 
-      // --- 2. keep the IME withheld while the command menu is open ------------
-      const TRIGGER = '[data-composer-card] button[aria-haspopup="listbox"]';
+      // --- 2. leave the keyboard alone while the composer is in use -----------
+      const CARD = '[data-composer-card]';
+      const TRIGGER = CARD + ' button[aria-haspopup="listbox"]';
       const EDITOR = '[data-composer-input]';
+
+      // A tap on any composer control opens a short window: the page's IME
+      // policy runs synchronously inside that same pointerdown.
+      let guardUntil = 0;
+      document.addEventListener('pointerdown', (event) => {
+        const target = event.target instanceof Element ? event.target : null;
+        if (target !== null && target.closest(CARD) !== null) {
+          guardUntil = performance.now() + 600;
+        }
+      }, true);
 
       const menuIsOpen = () => {
         const trigger = document.querySelector(TRIGGER);
         return trigger !== null && trigger.getAttribute('aria-expanded') === 'true';
       };
 
-      document.addEventListener('pointerdown', (event) => {
-        if (!menuIsOpen()) { return; }
-        const target = event.target instanceof Element ? event.target : null;
-        if (target === null) { return; }
-        // The trigger's own tap has to reach the page: that is what withholds
-        // the IME. Tapping the editor again is the user asking for the keyboard.
-        if (target.closest(TRIGGER) !== null) { return; }
-        if (target.closest(EDITOR) !== null) { return; }
-        event.stopImmediatePropagation();
-      }, true);
+      const guarded = () => menuIsOpen() || performance.now() < guardUntil;
+
+      const setAttribute = Element.prototype.setAttribute;
+      Element.prototype.setAttribute = function (name, value) {
+        if (String(name).toLowerCase() === 'inputmode'
+            && this instanceof Element && this.matches(EDITOR) && guarded()) {
+          return;
+        }
+        return setAttribute.call(this, name, value);
+      };
+
+      const removeAttribute = Element.prototype.removeAttribute;
+      Element.prototype.removeAttribute = function (name) {
+        if (String(name).toLowerCase() === 'inputmode'
+            && this instanceof Element && this.matches(EDITOR) && guarded()) {
+          return;
+        }
+        return removeAttribute.call(this, name);
+      };
     })();
     """
 }
