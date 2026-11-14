@@ -61,8 +61,8 @@ struct ServerTrustEvaluator {
 
 1. **`SecTrustSetAnchorCertificatesOnly(trust, true)`** —— 不加这行，系统根证书仍被信任，等于没钉住。
 2. **`SecPolicyCreateSSL(true, host)`** —— 第二个参数传具体 host，不用 `nil`（`nil` 表示不校验证书名）。
-3. **有效期**：`SecTrustEvaluateWithError` 会校验，但若 CA 本身过期，必须给出**专门**的错误（"CA 已过期，请重新配对"），而不是通用 TLS 失败。
-4. **指纹**：读取固定 CA 时重新算 SHA-256，与保存的 instanceId 比对；不符即视为凭据损坏，**报错而不是静默丢弃**。
+3. **有效期**：`SecTrustEvaluateWithError` 会校验，但若 CA 本身过期，必须给出**专门**的错误（"CA 已过期，请重新配对"），而不是通用 TLS 失败。→ 0.9.30 起 `PinnedTrustEvaluator` 在评估失败后检查锚点证书的 `notAfter`，过期回 `TrustFailure.anchorExpired`；`GatewayWebView` 把拒绝原因写进桥日志（`tls rejected · host · 原因`）。
+4. **指纹**：读取固定 CA 时重新算 SHA-256，与保存的 instanceId 比对；不符即视为凭据损坏，**报错而不是静默丢弃**。→ 自检页的「凭据」一行会显示 `certificateMismatch`（`DeviceHealth`）。
 
 复刻 Android 的叶证书校验语义：
 

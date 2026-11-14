@@ -181,10 +181,16 @@ struct GatewayWebView: UIViewRepresentable {
                 return
             }
 
-            switch evaluator.evaluate(trust, host: space.host) {
+            let decision = evaluator.evaluate(trust, host: space.host)
+            switch decision {
             case .allowed:
                 completionHandler(.useCredential, URLCredential(trust: trust))
-            case .rejected:
+            case .rejected(let failure):
+                // A TLS refusal has to be readable on the device: "CA 已过期"
+                // and "fingerprint mismatch" need different actions.
+                Task { @MainActor in
+                    BridgeLog.shared.append("tls rejected", detail: space.host + " · " + failure.description)
+                }
                 completionHandler(.cancelAuthenticationChallenge, nil)
             }
         }
