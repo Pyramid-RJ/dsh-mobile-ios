@@ -19,6 +19,7 @@
 | 怎么验收、要跑哪些用例 | [06 测试与验收](06-testing.md) |
 | 拍照（`camera.capture`）怎么测、权限怎么重置 | [09 相机测试方案](09-camera-test-plan.md) |
 | 文本框里的模式词条删不掉（不是壳的问题） | [10 上游问题记录](10-upstream-issues.md) |
+| 壳和上游源码的契约差在哪 | [11 契约对照](11-contract-diff.md) |
 | 什么时候做什么、会卡在哪 | [07 路线图与风险](07-roadmap-and-risks.md) |
 
 ## 一句话结论
