@@ -11,6 +11,7 @@ struct GatewayWebViewScreen: View {
 
     @Environment(\.dismiss) private var dismiss
     @State private var showsLog = false
+    @State private var newlineFeedback: String?
 
     var body: some View {
         GatewayWebView(
@@ -25,12 +26,41 @@ struct GatewayWebViewScreen: View {
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {
+                    Button {
+                        insertLineBreak()
+                    } label: {
+                        Image(systemName: "return")
+                    }
+                    .accessibilityLabel("换行")
+                }
+                ToolbarItem(placement: .topBarTrailing) {
                     Button("桥日志") { showsLog = true }
                 }
             }
             .sheet(isPresented: $showsLog) {
                 BridgeLogScreen()
             }
+    }
+
+    /// The page's own Enter translation never fires on this device, so the shell
+    /// offers the same result directly: a line break in the focused draft.
+    /// `execCommand` goes through WebKit's editing pipeline, which is what the
+    /// editor listens to; a synthetic key event would not be trusted.
+    private func insertLineBreak() {
+        let script = """
+        (function () {
+          var el = document.activeElement;
+          if (!el || !(el.isContentEditable || el.tagName === 'TEXTAREA')) { return 'no-editor'; }
+          try { if (document.execCommand('insertLineBreak')) { return 'ok'; } } catch (e) {}
+          try { if (document.execCommand('insertText', false, '\\n')) { return 'ok-text'; } } catch (e) {}
+          return 'failed';
+        })();
+        """
+        BridgeHostRegistry.shared.current?.runInPage(script) { result in
+            Task { @MainActor in
+                BridgeLog.shared.append("insert line break", detail: String(describing: result ?? "nil"))
+            }
+        }
     }
 }
 

@@ -158,3 +158,13 @@ iOS 端：装 0.9.0 壳 → 打开页面 → 「+」→ 计划 → 在文本框�
 - 0.9.13 恢复「收起时拦 restore」，并**给键盘状态加了桥日志**（`keyboard state imeVisible=…`、`page sees keyboard …`），用来定位回车为什么没走换行分支。
 
 **边界**：只依赖 `data-composer-input` 这一个既有属性与壳发布的键盘状态；上游改了标记就自动失效，不会误伤。上游修好（`resolveComposerImePolicy` 不再改 `inputmode`）之后应删除这段。
+
+## 9 回车不换行（2026-11-15）
+
+页面自己的换行翻译在 `dsh-mobile/lib/client.js` 的 `bindComposerSoftEnter`：软键盘回车时 `preventDefault()`，再派发一个 `shiftKey: true` 的合成 keydown 让编辑器插入换行。触发条件是 `isSoftKeyboardEnterLineBreak`，要求 `nativeState.imeVisible === true`、`noHardwareKeyboard === true`、编辑器 `contenteditable="true"`、`event.isTrusted` 等。
+
+壳侧已经把 `imeVisible` 发布正确（0.9.13 日志可见 `imeVisible=true/false` 随键盘正确切换），但回车仍不换行，说明条件里还有一项不满足（很可能是编辑器属性或事件被别处 `preventDefault`）。
+
+**壳侧兜底（0.9.14）**：网页工具栏加一个「换行」按钮，直接用 `document.execCommand('insertLineBreak')`（失败回退 `insertText`）在焦点编辑器里插入换行——走 WebKit 的编辑管线，编辑器能收到，不依赖 `isTrusted` 的合成事件。
+
+**诊断**：打开「桥日志」时会执行一次 `composer probe`，记录 `[data-composer-input]` 的数量、`contenteditable` 属性、`isContentEditable`、桥对象类型与键盘状态，用来定位页面的换行条件到底卡在哪一项。
