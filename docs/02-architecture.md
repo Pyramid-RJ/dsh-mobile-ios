@@ -29,25 +29,39 @@
                  URLSession（唯一出网通道）
 ```
 
-**关键决策**：所有对网关的 HTTP 请求（配对、续期、探测）与所有页面加载的证书决策，都收敛到**一个 `ServerTrustEvaluator`**。不允许任何模块自己写 `completionHandler(.useCredential, ...)`。
+**关键决策**：所有对网关的 HTTP 请求（配对、续期、探测）与所有页面加载的证书决策，都收敛到**一个 `GatewayTrustEvaluating`**（`PinnedTrustEvaluator` 或 `SystemTrustEvaluator`）。除下面两处**有界例外**，不允许任何模块自己写 `completionHandler(.useCredential, ...)`：
 
-## 2 模块划分（建议的 Xcode 目录）
+| 例外 | 范围 | 依据 |
+| --- | --- | --- |
+| `BootstrapOnlyTrustDelegate` | 只用于 `/mobile-access/ca.cer` 引导请求，且取回后立即做指纹校验 | [04 §2.3](04-security.md#23-引导期信任的分寸) |
+| `S1ProbeView`（Spike） | 开发期探针，不参与正式流程 | [00 §5](00-feasibility.md#5-必须实测的关键假设spike-清单) |
+
+核对结果（2026-11-15）：`grep useCredential` 只有 4 处——两个委托类、WebView 的 challenge、S-1 探针；前两者与 WebView 都经评估器决策，S-1 探针同样调用 `evaluator.evaluate`，没有无条件接受。
+
+## 2 模块划分（实际目录，2026-11-15）
 
 ```
 ios/
-  DSHPairing/          # 纯逻辑，无 UIKit：配对键、Origin、URL 策略、协议模型
-  DSHTrust/            # CA 校验、指纹、SecTrust 锚点构造
-  DSHTransport/        # URLSession 封装、超时、取消、错误分类
-  DSHDeviceStore/      # Keychain + 元数据、迁移、损坏检测
-  DSHBridge/           # 报文编解码、限额、pending 表、超时
-  DSHFeatures/         # files/camera/clipboard/share/scale/switch
-  DSHWeb/              # WKWebView 装配、导航策略、Cookie 注入、脚本注入
-  DSHUI/               # 设备列表、配对表单、二维码、诊断
-  App/                 # 组合根、生命周期、entitlements
-  Tests/               # 单元测试（对应上游 80 个 JVM 套件的思路）
+  Package.swift            # 纯逻辑包 DSHCore（L1 可 swift test）
+  Sources/
+    DSHPairing/            # 配对键、Origin、配对链接、导航策略
+    DSHTrust/              # CA 校验、指纹、锚点评估、X.509 有效期
+    DSHTransport/          # 端点、严格键集合、错误映射、Cookie 计划
+    DSHDeviceStore/        # Keychain 设备表、健康检查、重装恢复判定
+    DSHBridge/             # 报文、限额、回执、能力表、缩放公式
+    DSHDiscovery/          # 局域网公告校验（Bonjour TXT / JSON）
+  App/                     # 组合根（XcodeGen 生成工程）
+    Pairing/               # AppModel、配对编排、扫码、自检、验收清单、发现
+    Web/                   # WKWebView、桥宿主、注入脚本、Cookie、相机/文件/分享
+    Spike/                 # S-1 探针（保留作回归）
+  Tests/                   # 与 Sources 一一对应的单测
 ```
 
-`DSHPairing` / `DSHTrust` / `DSHBridge` 必须**不依赖 UIKit**，这样可以在 macOS 上用 `swift test` 直接跑，不必每次开模拟器。
+与最初设想的差异（如实记录）：
+
+- 没有单独的 `DSHFeatures` / `DSHWeb` / `DSHUI` 包：原生能力与页面装配都在 `App/` 里，因为它们都依赖 UIKit/WebKit，拆包只增加跨包可见性成本；
+- 多了 `DSHDiscovery`：局域网发现是纯逻辑（公告校验），值得单独测试；
+- `DSHPairing` / `DSHTrust` / `DSHTransport` / `DSHDeviceStore` / `DSHBridge` / `DSHDiscovery` **都不依赖 UIKit**，CI 上 `swift test` 秒级跑完。
 
 ## 3 启动与连接时序
 

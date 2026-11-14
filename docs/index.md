@@ -15,6 +15,7 @@
 | 和 Android APK 怎么逐项对齐 | [03 协议对齐矩阵](03-protocol-alignment.md) |
 | 安全边界在哪、什么不做 | [04 安全与信任模型](04-security.md) |
 | 怎么编译、怎么签名、7 天怎么续 | [05 构建签名与侧载](05-build-and-signing.md) |
+| 怎么装到手机上（给最终用户） | [INSTALL.md](../INSTALL.md) |
 | CI 环境怎么配、怎么触发、产物怎么拿 | [08 GitHub Actions 环境](08-ci-environment.md) |
 | 怎么验收、要跑哪些用例 | [06 测试与验收](06-testing.md) |
 | 拍照（`camera.capture`）怎么测、权限怎么重置 | [09 相机测试方案](09-camera-test-plan.md) |

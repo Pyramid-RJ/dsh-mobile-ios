@@ -42,8 +42,10 @@ ios/
 | `DSHTransport` | Foundation | ✅ |
 | `DSHBridge` | Foundation | ✅ |
 | `DSHDeviceStore` | Foundation + Security | ✅（Keychain 用协议注入假实现） |
-| `DSHFeatures` | UIKit | ❌（用协议隔离后测逻辑层） |
-| `DSHWeb` | WebKit | ❌（真机/模拟器） |
+| `DSHDiscovery` | Foundation + DSHPairing | ✅ |
+| `App/`（原生能力 + 页面装配） | UIKit + WebKit | ❌（真机/模拟器） |
+
+> 实际落地（2026-11-15）：没有拆出 `DSHFeatures` / `DSHWeb` 两个包，原生能力与页面装配都在 `App/` 里；纯逻辑是上面 6 个包，CI 的 `swift test` 约 5 秒跑完。
 
 ## 3 签名配置
 
@@ -274,13 +276,13 @@ jobs:
 | `DSHMobile-unsigned.ipa` | 未签名安装包 |
 | `DSHMobile-<version>.xcarchive.zip` | 归档（用于重新导出） |
 | `dSYM.zip` | 崩溃符号（侧载场景可直接丢弃，但保留便于排查） |
-| `release.json` | `{version, build, minIOS, pluginCompatibility}`（对齐上游 `apps/mobile/release.json` 的形状） |
+| `release.json` | 实际字段（0.9.30 实测）：`{version, build, bundleId, minIOS, scheme, configuration, signed, ipa, ipaBytes, sha256, commit, repository, builtAt}` |
 | `SHA256SUMS` | 校验和 |
-| `INSTALL.md` | 面向用户的三步安装说明（Xcode / AltStore / Sideloadly） |
+| [`INSTALL.md`](../INSTALL.md) | 面向用户的安装说明（AltStore / Sideloadly / Xcode、7 天续签、常见问题） |
 
 ## 7 安装说明模板（给最终用户）
 
-> 以下为 `INSTALL.md` 的草案，发布时应与产物一起提供。
+> 正式的安装说明见仓库根目录的 [`INSTALL.md`](../INSTALL.md)；下面是早期草案，保留作对照。
 
 **准备**：一台 Mac（或已装 AltServer 的电脑）、你的 Apple ID、Lightning/USB-C 线。
 

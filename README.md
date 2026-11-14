@@ -2,6 +2,8 @@
 
 > **状态：可用的侧载客户端（0.9.28）。** 这是一个为 [`saya-ch/dsh-mobile`](https://github.com/saya-ch/dsh-mobile) 实现**可侧载 iOS 客户端（`.ipa`）**的仓库。配对、扫码、页面桥、相机、选文件、设备列表、重装恢复与撤销检测都已在真机验证；CI 产出未签名 `.ipa`，用你自己的 Apple ID 重签即可安装。待验证项见 [docs/12](docs/12-pending-verification.md)。
 >
+> 安装步骤见 [INSTALL.md](INSTALL.md)。
+>
 > 上游项目明确不提供、也不计划提供原生 iOS App（其官方路径是 Safari + 添加到主屏幕的 PWA）。本项目是**社区衍生的独立方向**，不是上游官方发布，也不包含上游源码的修改。
 
 ## 为什么会有这个仓库
