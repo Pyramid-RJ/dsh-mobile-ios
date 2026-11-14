@@ -110,3 +110,23 @@ RESULT: matches the diagnosis
 ## 6 复现与取证方法
 
 iOS 端：装 0.9.0 壳 → 打开页面 → 「+」→ 计划 → 在文本框里连按退格 → 词条只变高亮不消失。桥日志里不会出现任何 `invoke`（与桥无关），可作为「壳未介入」的旁证。
+
+## 7 `share` 在页面上没有入口（2026-11-14 确认）
+
+壳的 `share` 已经实现（`SharePresenter` → `UIActivityViewController`），但**页面从不调用它**，所以 UI 上找不到「分享」，P1-04 无法验证。
+
+证据（读 `~/.dsh/profiles/desktop/node_modules/dsh-mobile/lib/client.js`，dsh-mobile 0.8.8）：
+
+- 页面里唯一和 `share` 有关的是**降级适配器**：没有原生桥时 `invoke('share')` 走 `navigator.share`；
+- 除这段适配器外，整个插件只有 3 处 `share` 字样，全是「Shared token」「Shared 32-bit …」这类无关文案；
+- 全仓库 grep `invoke("share"` / `action: "share"` 无命中 —— **没有任何按钮或菜单项发起它**。
+
+对比一下：`camera.capture` 有明确调用点（`bridge.invoke("camera.capture", {})`），`files.pick` 由附件选择器走同一适配器，而 `share` 只有适配器、没有调用者。
+
+因此：
+
+- 长按消息出现的是**系统文本选择器**，那是 WebKit 自带行为，与桥无关；
+- 想分享只能先选中文本、用系统菜单里的「拷贝」，再自己粘贴；
+- `capabilities()` 里继续报 `share` 不会造成「点了没反应的按钮」（页面根本没渲染这个按钮），但也没意义——等上游加了入口再验证。
+
+如果确实需要分享，可以在壳里加一个原生入口（工具栏按钮分享当前页面地址，或分享选中文本），这是产品决定，不是修 bug。

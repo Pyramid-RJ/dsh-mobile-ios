@@ -108,7 +108,7 @@ struct UrlPolicyContractTests: XCTestCase {
 | P1-01 | `clipboard.write` / `read` | 正常，超 256 KiB 报错 |
 | P1-02 | `files.pick` 选一张图 | 页面收到文件，可发送 |
 | P1-03 | `camera.capture` | ✅ 2026-11-14 真机通过（0.9.2）；展开用例与权限重置见 [09](09-camera-test-plan.md) |
-| P1-04 | `share` | 系统分享面板 |
+| P1-04 | `share` | 系统分享面板（**页面无入口，当前无法验证**，见 [10 §7](10-upstream-issues.md)） |
 | P1-05 | `mobile.display-scale.set(80/125/126)` | 前者生效，126 报 `bad_message` |
 | P1-06 | `mobile.switch-computer` | 回到设备列表 |
 | P1-07 | 键盘弹出时输入框 Enter | 换行（而非发送） |

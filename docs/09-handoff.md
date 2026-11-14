@@ -29,7 +29,7 @@ iOS 壳已经能配对、能打开 DSH 页面、页面走原生分支，桥的�
 
 ## 3 未验证（不要当成通过）
 
-1. **附件链路**：`camera.capture` 与 `files.pick` 已于 0.9.2 真机通过（见 §2）；`share` 仍未在真机验证；
+1. **附件链路**：`camera.capture` 与 `files.pick` 已于 0.9.2 真机通过（见 §2）；`share` 已实现但**页面没有入口**（[10 §7](10-upstream-issues.md)）；
 2. **权限被拒的路径**：`permission_denied` 分支已补（`CameraCapture` 预检 + `PickFailure.bridgeCode`），**真机未验证**；
 3. **iOS 17.0**（声明的最低版本）与 **iPad**：全部功能都没在这两个目标上测过；
 4. **远程通道**：隧道那条路（Cloudflare origin 是 http）只用探针试过，配对未验证；
@@ -60,7 +60,7 @@ ios/
 
 ## 5 下一步建议顺序
 
-1. **`share` 的真机验证**（相机与 `files.pick` 已在 0.9.2 通过）：分享面板 → 取消/完成。用例见 [09 相机测试方案](09-camera-test-plan.md) 的同构写法；
+1. **`share` 暂时无法验证**：页面没有任何调用点（见 [10 §7](10-upstream-issues.md)），等上游加入口，或决定在壳里加原生入口；
 2. **相机剩余用例**：C-3/C-4（拒绝权限，需卸载重装）、C-9（超大图）、C-10（超时，可临时把 `CameraCapture.deadline` 改成 10 s）——见 [09](09-camera-test-plan.md)；
 3. **iOS 17 与 iPad 复核**：至少跑一遍配对 + 打开页面；
 4. **远程通道**：用隧道地址走一次完整配对（注意 origin 是 http，不需要私有 CA）；
