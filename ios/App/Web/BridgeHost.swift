@@ -16,6 +16,9 @@ final class BridgeHost: NSObject, WKScriptMessageHandler {
     private let evaluator: PinnedTrustEvaluator
     private let deviceToken: String?
     private let onSwitchComputer: (() -> Void)?
+    /// The page reports that the computer revoked this device (event stream
+    /// `reason: "device_revoked"`), so the shell can mark it and leave the page.
+    private let onDeviceRevoked: (() -> Void)?
     private let pending = BridgePendingTracker()
     /// The capture in flight, so a second request replaces it instead of
     /// stacking a second camera on top of the first.
@@ -27,12 +30,14 @@ final class BridgeHost: NSObject, WKScriptMessageHandler {
         origin: GatewayOrigin,
         evaluator: PinnedTrustEvaluator,
         deviceToken: String?,
-        onSwitchComputer: (() -> Void)? = nil
+        onSwitchComputer: (() -> Void)? = nil,
+        onDeviceRevoked: (() -> Void)? = nil
     ) {
         self.origin = origin
         self.evaluator = evaluator
         self.deviceToken = deviceToken
         self.onSwitchComputer = onSwitchComputer
+        self.onDeviceRevoked = onDeviceRevoked
         super.init()
     }
 
@@ -96,6 +101,13 @@ final class BridgeHost: NSObject, WKScriptMessageHandler {
             } catch {
                 return BridgeReply.failure(requestId: request.requestId, code: .failed, message: error.localizedDescription)
             }
+        case BridgeAction.deviceRevoked.rawValue:
+            // The page learned from the event stream that the computer dropped
+            // this device; it is a notification, so answer and hand it to the UI.
+            appendLog("device revoked by the computer")
+            onDeviceRevoked?()
+            return BridgeReply.success(requestId: request.requestId, value: ["revoked": true])
+
         case BridgeAction.switchComputer.rawValue:
             // The page asked for the computer list; pop back to the app's list.
             onSwitchComputer?()

@@ -105,7 +105,9 @@ struct RootView: View {
                     // same host, and two identical "打开" rows read as two devices.
                     if let session = model.session ?? pairing.session {
                         NavigationLink("打开 \(session.origin.host)") {
-                            GatewayWebViewScreen(session: session)
+                            GatewayWebViewScreen(session: session) { revoked in
+                                model.markRevoked(origin: revoked.origin.description)
+                            }
                         }
                     }
                 }

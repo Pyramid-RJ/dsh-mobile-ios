@@ -53,7 +53,9 @@ struct DeviceListView: View {
         }
         .navigationDestination(isPresented: $showWeb) {
             if let session = model.session {
-                GatewayWebViewScreen(session: session)
+                GatewayWebViewScreen(session: session) { revoked in
+                    model.markRevoked(origin: revoked.origin.description)
+                }
             }
         }
         .alert("重命名", isPresented: renameBinding) {

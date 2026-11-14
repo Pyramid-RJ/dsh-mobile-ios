@@ -155,6 +155,7 @@ window.dispatchEvent(new Event('dsh-mobile-native-ready'))
 | `notification.settings` | ✅ | **[无]** | 仅当实现了通知才有意义 |
 | `notification.background.get/set` | ✅ | **[无]** | 页面对这两个能力做 `includes` 检查，缺失只隐藏该行 |
 | `mobile.switch-computer` | ✅ | **[S]** | 回设备列表 |
+| `device.revoked` | ✅ | **[S]** | 页面从事件流得知 `reason: "device_revoked"` 时通知原生：标记该电脑为「已移除」并退回设备列表（页面不检查能力表，直接 `invoke`，忽略回执） |
 | `mobile.display-scale.get/set` | ✅ | **[S]** | 改 `meta viewport`，公式见 [03 §6.1](#61-显示缩放公式) |
 | iroh 传输 | ✅（完整版） | **[无]** | 见 [02 §8](02-architecture.md#8-与-iroh-的关系) |
 

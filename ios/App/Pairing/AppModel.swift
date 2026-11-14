@@ -201,6 +201,17 @@ final class AppModel: ObservableObject {
         }
     }
 
+    /// The page reported (from its event stream) that the computer dropped this
+    /// device. Marks the record so the list and the next launch say so.
+    func markRevoked(origin: String) {
+        guard let record = devices.first(where: { $0.origin == origin }) else { return }
+        revoked.insert(record.id)
+        reachability[record.id] = .unreachable("电脑端已移除")
+        connection = .revoked(record.displayName)
+        session = nil
+        status = "「" + record.displayName + "」已移除本机设备，请重新配对或删除记录"
+    }
+
     /// Re-pairing the same computer clears its revoked mark.
     func clearRevoked(_ record: DeviceRecord) {
         revoked.remove(record.id)

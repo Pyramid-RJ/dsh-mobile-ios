@@ -6,12 +6,21 @@ import DSHTrust
 
 struct GatewayWebViewScreen: View {
     let session: BrowserSession
+    /// Called when the page reports that the computer revoked this device.
+    var onDeviceRevoked: ((BrowserSession) -> Void)?
 
     @Environment(\.dismiss) private var dismiss
     @State private var showsLog = false
 
     var body: some View {
-        GatewayWebView(session: session, onSwitchComputer: { dismiss() })
+        GatewayWebView(
+            session: session,
+            onSwitchComputer: { dismiss() },
+            onDeviceRevoked: {
+                onDeviceRevoked?(session)
+                dismiss()
+            }
+        )
             .navigationTitle(session.origin.host)
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
@@ -30,9 +39,10 @@ struct GatewayWebViewScreen: View {
 struct GatewayWebView: UIViewRepresentable {
     let session: BrowserSession
     var onSwitchComputer: (() -> Void)?
+    var onDeviceRevoked: (() -> Void)?
 
     func makeCoordinator() -> Coordinator {
-        Coordinator(session: session, onSwitchComputer: onSwitchComputer)
+        Coordinator(session: session, onSwitchComputer: onSwitchComputer, onDeviceRevoked: onDeviceRevoked)
     }
 
     func makeUIView(context: Context) -> WKWebView {
@@ -89,17 +99,19 @@ struct GatewayWebView: UIViewRepresentable {
             .share,
             .filesPick,
             .cameraCapture,
+            .deviceRevoked,
         ])
 
         private let evaluator: PinnedTrustEvaluator
 
-        init(session: BrowserSession, onSwitchComputer: (() -> Void)?) {
+        init(session: BrowserSession, onSwitchComputer: (() -> Void)?, onDeviceRevoked: (() -> Void)?) {
             evaluator = session.evaluator
             bridgeHost = BridgeHost(
                 origin: session.origin,
                 evaluator: session.evaluator,
                 deviceToken: session.deviceToken,
-                onSwitchComputer: onSwitchComputer
+                onSwitchComputer: onSwitchComputer,
+                onDeviceRevoked: onDeviceRevoked
             )
             super.init()
         }

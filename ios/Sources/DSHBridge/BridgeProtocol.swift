@@ -35,6 +35,10 @@ public enum BridgeAction: String, CaseIterable, Hashable, Sendable {
     case filesPick = "files.pick"
     case cameraCapture = "camera.capture"
     case switchComputer = "mobile.switch-computer"
+    /// Page -> shell notification: the computer dropped this device. The page
+    /// fires it from the event stream (`reason: "device_revoked"`) and ignores
+    /// the reply, so the shell only has to react.
+    case deviceRevoked = "device.revoked"
     case displayScaleGet = "mobile.display-scale.get"
     case displayScaleSet = "mobile.display-scale.set"
 }
