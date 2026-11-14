@@ -362,6 +362,11 @@ final class BridgeHost: NSObject, WKScriptMessageHandler {
         }
     }
 
+    /// Reloads the page, used by the load-failure overlay's 重试 button.
+    func reload() {
+        webView?.reload()
+    }
+
     /// Runs a snippet in the page and hands the result back. Used by the in-app
     /// self-check, which has no page action to call.
     func runInPage(_ script: String, completion: @escaping (Any?) -> Void) {

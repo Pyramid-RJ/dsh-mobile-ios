@@ -11,6 +11,7 @@ struct GatewayWebViewScreen: View {
 
     @Environment(\.dismiss) private var dismiss
     @State private var showsLog = false
+    @State private var loadFailure: String?
 
     var body: some View {
         GatewayWebView(
@@ -19,8 +20,16 @@ struct GatewayWebViewScreen: View {
             onDeviceRevoked: {
                 onDeviceRevoked?(session)
                 dismiss()
+            },
+            onLoadFailure: { message in
+                loadFailure = message
             }
         )
+            .overlay {
+                if let loadFailure {
+                    loadFailureOverlay(loadFailure)
+                }
+            }
             .navigationTitle(session.origin.host)
             .navigationBarTitleDisplayMode(.inline)
             .navigationBarBackButtonHidden(true)
@@ -41,6 +50,33 @@ struct GatewayWebViewScreen: View {
             .sheet(isPresented: $showsLog) {
                 BridgeLogScreen()
             }
+    }
+
+    /// F-2.4: a first-screen failure has to offer a way out - retry, or leave.
+    private func loadFailureOverlay(_ message: String) -> some View {
+        VStack(spacing: 14) {
+            Image(systemName: "wifi.exclamationmark")
+                .font(.largeTitle)
+                .foregroundStyle(.orange)
+            Text("页面没有加载出来")
+                .font(.headline)
+            Text(message)
+                .font(.footnote)
+                .foregroundStyle(.secondary)
+                .multilineTextAlignment(.center)
+            HStack(spacing: 12) {
+                Button("重试") {
+                    loadFailure = nil
+                    BridgeHostRegistry.shared.current?.reload()
+                }
+                .buttonStyle(.borderedProminent)
+                Button("返回") { dismiss() }
+                    .buttonStyle(.bordered)
+            }
+        }
+        .padding(24)
+        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 16))
+        .padding(32)
     }
 
     /// Back is the page's decision first (docs/03 §7.1): if it closed a drawer,
@@ -68,9 +104,15 @@ struct GatewayWebView: UIViewRepresentable {
     let session: BrowserSession
     var onSwitchComputer: (() -> Void)?
     var onDeviceRevoked: (() -> Void)?
+    var onLoadFailure: ((String) -> Void)?
 
     func makeCoordinator() -> Coordinator {
-        Coordinator(session: session, onSwitchComputer: onSwitchComputer, onDeviceRevoked: onDeviceRevoked)
+        Coordinator(
+            session: session,
+            onSwitchComputer: onSwitchComputer,
+            onDeviceRevoked: onDeviceRevoked,
+            onLoadFailure: onLoadFailure
+        )
     }
 
     func makeUIView(context: Context) -> WKWebView {
@@ -121,7 +163,15 @@ struct GatewayWebView: UIViewRepresentable {
 
         private let evaluator: any GatewayTrustEvaluating
 
-        init(session: BrowserSession, onSwitchComputer: (() -> Void)?, onDeviceRevoked: (() -> Void)?) {
+        private let onLoadFailure: ((String) -> Void)?
+
+        init(
+            session: BrowserSession,
+            onSwitchComputer: (() -> Void)?,
+            onDeviceRevoked: (() -> Void)?,
+            onLoadFailure: ((String) -> Void)? = nil
+        ) {
+            self.onLoadFailure = onLoadFailure
             evaluator = session.evaluator
             let advertised = BridgeCapabilities(implemented: [
                 .authRenew,
@@ -200,7 +250,39 @@ struct GatewayWebView: UIViewRepresentable {
             didFailProvisionalNavigation navigation: WKNavigation!,
             withError error: Error
         ) {
-            NSLog("%@", "gateway load failed: " + error.localizedDescription + " (" + String((error as NSError).code) + ")")
+            let nsError = error as NSError
+            NSLog("%@", "gateway load failed: " + error.localizedDescription + " (" + String(nsError.code) + ")")
+            Task { @MainActor in
+                BridgeLog.shared.append("gateway load failed", detail: error.localizedDescription)
+                self.onLoadFailure?(Self.describe(error))
+            }
+        }
+
+        func webView(_ webView: WKWebView, didFail navigation: WKNavigation!, withError error: Error) {
+            let nsError = error as NSError
+            // A cancelled load is what a redirect or a user gesture looks like;
+            // only a real failure deserves the overlay.
+            guard nsError.code != NSURLErrorCancelled else { return }
+            Task { @MainActor in
+                BridgeLog.shared.append("gateway navigation failed", detail: error.localizedDescription)
+                self.onLoadFailure?(Self.describe(error))
+            }
+        }
+
+        /// Turns the NSURLError into something a person can act on.
+        private static func describe(_ error: Error) -> String {
+            let nsError = error as NSError
+            switch nsError.code {
+            case NSURLErrorServerCertificateUntrusted, NSURLErrorServerCertificateHasBadDate,
+                 NSURLErrorServerCertificateHasUnknownRoot, NSURLErrorSecureConnectionFailed:
+                return "证书校验失败（\(nsError.code)）：电脑端的 CA 可能已更换或过期，请重新配对。"
+            case NSURLErrorCannotConnectToHost, NSURLErrorCannotFindHost, NSURLErrorTimedOut:
+                return "连不上电脑（\(nsError.code)）：确认电脑开着、和手机在同一网络，或隧道是否在线。"
+            case NSURLErrorNotConnectedToInternet, NSURLErrorNetworkConnectionLost:
+                return "网络不可用（\(nsError.code)）：检查 Wi-Fi 或蜂窝。"
+            default:
+                return error.localizedDescription + "（\(nsError.code)）"
+            }
         }
 
         func webViewWebContentProcessDidTerminate(_ webView: WKWebView) {
