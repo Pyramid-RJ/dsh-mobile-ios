@@ -115,6 +115,12 @@ App 内起一个 `127.0.0.1` 的 HTTPS→HTTPS 代理，WebView 加载 `https://
 | **S-3** | `getUserMedia`（语音输入）在 WKWebView 中可用且能拿到麦克风 | 页面录音入口 | 声明不支持语音，能力表里不出现相关分支 |
 | **S-4** | `NWBrowser` 能发现 `_dsh-mobile._tcp.` 并读到 TXT 记录，局域网权限流程正常 | 电脑开局域网访问，iOS 扫描 | 只保留「手输 `https://IP:端口`」与「粘贴配对链接」，不做自动发现 |
 
+**S-2 结论（2026-11-14，真机实测）：问题被绕开，不再是假设。** 页面在有原生桥时走 `bridge.invoke('files.pick')`，由 `UIDocumentPickerViewController`（`asCopy: true`）选文件并回传 base64，页面再还原成 `File`——**完全不经过 `<input type=file>`**。真机上选 PDF 成功进入对话（0.9.2）。所以 S-2 原本要验证的「WKWebView 能否弹系统选择器」不再影响架构；`<input type=file>` 只在没有原生桥的降级路径里出现。
+
+**S-3 结论：不支持语音，按计划降级。** 能力表里没有语音相关项，页面据此隐藏对应入口；`getUserMedia` 未做实测，也不在计划内（免费签名 + 无后台，价值低）。
+
+**S-4 结论（2026-11-15，代码就绪，待真机）：** `NWBrowser` 已实现（`DSHDiscovery` + `BonjourDiscovery`），公告按契约校验（恰好 5 键、`protocol==1`、64 位 hex instanceId）；首页「附近的电脑」可列出已配对电脑并直接连接。真机验证见 [12 B1](12-pending-verification.md)。
+
 **S-1 结论（2026-11-13，真机实测）：通过。** iPhone（iOS 27.0.1）上用 `https://<局域网IP>:3443` 加载自签网关：`challenge #1 NSURLAuthenticationMethodServerTrust` 正常触发，固定私有 CA 的 `useCredential` 被接受，`didFinish` 到达；取回的 CA 指纹与配对链接里的 `instance` 一致。仍未验证 iOS 17.0（声明的最低版本）与 iPad。
 
 S-1 是唯一会改变整体架构的假设，其余只影响功能取舍。

@@ -14,11 +14,11 @@ P0 Spike ──► P1 配对与信任 ──► P2 设备与持久化 ──► 
 
 | 任务 | 产出 | 退出条件 |
 | --- | --- | --- |
-| 工程骨架 + CI 跑通空壳 | `ios/` 目录（已提交）、Actions 绿（未实测） | 能在 macOS runner 上 `xcodebuild` 出未签名 archive |
+| 工程骨架 + CI 跑通空壳 | ✅ Actions 已多次跑通，产出未签名 `.ipa` | 能在 macOS runner 上 `xcodebuild` 出未签名 archive |
 | S-1：自签 CA 加载 | **✅ 2026-11-13 真机通过**（iPhone，iOS 27.0.1）+ 最小 demo（[`ios/App/Spike/S1ProbeView.swift`](../ios/App/Spike/S1ProbeView.swift)） | 明确"WKWebView 能否用固定 CA 加载自签页面" |
-| S-2：`<input type=file>` | 结论 | 能选文件并回填 |
-| S-3：`getUserMedia` | 结论 | 能录音 |
-| S-4：`NWBrowser` 发现 | 结论 | 能发现 `_dsh-mobile._tcp.` 并读 TXT |
+| S-2：`<input type=file>` | **绕开**：改用原生 `files.pick`（0.9.2 真机通过） | 能选文件并回填 |
+| S-3：`getUserMedia` | **不做**：能力表不报语音，页面隐藏入口 | 能录音 |
+| S-4：`NWBrowser` 发现 | **代码就绪**（0.9.21），待真机 | 能发现 `_dsh-mobile._tcp.` 并读 TXT |
 
 > S-1 失败 → 立即停止后续投入，改为架构 A（纯浏览器壳），并按 [00 §5](00-feasibility.md#5-必须实测的关键假设spike-清单) 的重评估路径重写范围。
 
@@ -35,7 +35,7 @@ P0 Spike ──► P1 配对与信任 ──► P2 设备与持久化 ──► 
 
 ### P2 设备与持久化（5 人日）
 
-> 进度（2026-11-14）：设备列表、重命名、置顶、删除、可达性探测已实现（0.9.4，删除已在真机确认）；重装残留恢复（P1-12）与撤销检测（P0-09）在 0.9.5 落地，待真机验证。
+> 进度（2026-11-15）：**P2 全部完成并真机验证**——设备列表/重命名/置顶/删除/可达性（0.9.4）、重装残留恢复（0.9.5，P1-12）、撤销检测与重新配对后标记清除（0.9.19，P0-09）、删除记录同时清 Cookie（0.9.29，F-4.4）。
 
 - Keychain 存储与损坏检测
 - 设备列表、重命名、排序、删除
@@ -46,7 +46,7 @@ P0 Spike ──► P1 配对与信任 ──► P2 设备与持久化 ──► 
 
 ### P3 页面桥（6 人日）
 
-> 进度（2026-11-15）：全部完成——适配层注入、报文校验/限额、`auth.renew`（含取消与凭据类错误码）、`capabilities()` 诚实返回、`device.revoked`、返回键契约（0.9.24）。`keyboard.state` 已撤回，交还页面逻辑（[10 §12](10-upstream-issues.md)）。
+> 进度（2026-11-15）：全部完成——适配层注入、报文校验/限额、`auth.renew`（含取消与凭据类错误码）、`capabilities()` 诚实返回、`device.revoked`、返回键契约（0.9.24）。`keyboard.state` 已撤回，交还页面逻辑（[10 §12](10-upstream-issues.md)）。**唯一未验证**：返回键契约需要真机确认页面会先消费事件（[12 B8.5](12-pending-verification.md)）。
 
 - 注入适配层脚本
 - 报文校验、pending 表、限额、超时
