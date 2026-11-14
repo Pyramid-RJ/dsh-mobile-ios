@@ -12,6 +12,8 @@ public enum DeviceHealth {
         case certificateUnreadable
         /// The stored CA does not hash to the instance id the record carries.
         case certificateMismatch(expected: String, actual: String)
+        /// The stored CA is past its own validity window.
+        case certificateExpired
 
         public var description: String {
             switch self {
@@ -22,6 +24,8 @@ public enum DeviceHealth {
             case .certificateMismatch(let expected, let actual):
                 return "CA 指纹与 instance 不一致（记录 "
                     + String(expected.prefix(12)) + "… / CA " + String(actual.prefix(12)) + "…）"
+            case .certificateExpired:
+                return "CA 已过期，请重新配对"
             }
         }
     }
@@ -33,7 +37,8 @@ public enum DeviceHealth {
     public static func issues(
         record: DeviceRecord,
         now: Date = Date(),
-        caFingerprint: String?
+        caFingerprint: String?,
+        caNotAfter: Date? = nil
     ) -> [Issue] {
         var issues: [Issue] = []
         if record.isExpired(now: now) {
@@ -47,6 +52,9 @@ public enum DeviceHealth {
         }
         if caFingerprint.lowercased() != record.instanceId.lowercased() {
             issues.append(.certificateMismatch(expected: record.instanceId, actual: caFingerprint))
+        }
+        if let caNotAfter, caNotAfter <= now {
+            issues.append(.certificateExpired)
         }
         return issues
     }

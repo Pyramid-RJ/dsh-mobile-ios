@@ -176,6 +176,14 @@ final class AppModel: ObservableObject {
             if record.isExpired() {
                 throw MobileAccessFailure.deviceExpired
             }
+            // An expired pinned CA is not a network problem: say so before the
+            // TLS handshake fails with something generic (docs/04 section 2).
+            if let der = record.certificateAuthority,
+               let authority = CertificateAuthority(der: der),
+               let notAfter = authority.notAfter,
+               notAfter <= Date() {
+                throw PairingFlowError.certificateAuthorityExpired
+            }
             let (client, urlSession) = try makeClient(for: record, timeout: 15)
             defer { urlSession.finishTasksAndInvalidate() }
 

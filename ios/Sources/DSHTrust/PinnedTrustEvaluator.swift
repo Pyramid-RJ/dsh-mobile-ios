@@ -9,8 +9,6 @@ public enum TrustFailure: Equatable, CustomStringConvertible {
     case setupFailed(Int32)
     /// Evaluation ran and the system said no.
     case evaluationFailed(String)
-    /// The pinned CA itself is past its validity window.
-    case anchorExpired
 
     public var description: String {
         switch self {
@@ -20,8 +18,6 @@ public enum TrustFailure: Equatable, CustomStringConvertible {
             return "trust setup failed with OSStatus " + String(status)
         case .evaluationFailed(let message):
             return "trust evaluation failed: " + message
-        case .anchorExpired:
-            return "CA 已过期，请重新配对"
         }
     }
 }
@@ -113,36 +109,10 @@ public struct PinnedTrustEvaluator: GatewayTrustEvaluating {
             return .allowed
         }
 
-        // An expired CA has to say so: "TLS failed" sends the user looking at
-        // the network instead of re-pairing (docs/04 section 2).
-        if Self.anyAnchorExpired(anchors) {
-            return .rejected(.anchorExpired)
-        }
-
         var message = "unknown trust error"
         if let error {
             message = (CFErrorCopyDescription(error) as String?) ?? message
         }
         return .rejected(.evaluationFailed(message))
-    }
-
-    /// Whether any pinned certificate is past `notAfter`.
-    static func anyAnchorExpired(_ certificates: [SecCertificate], now: Date = Date()) -> Bool {
-        for certificate in certificates {
-            guard let values = SecCertificateCopyValues(
-                certificate,
-                [kSecOIDX509V1ValidityNotAfter] as CFArray,
-                nil
-            ) as? [CFString: Any],
-                let entry = values[kSecOIDX509V1ValidityNotAfter] as? [CFString: Any],
-                let value = entry[kSecPropertyKeyValue] as? NSNumber else {
-                continue
-            }
-            let expiry = Date(timeIntervalSinceReferenceDate: value.doubleValue)
-            if expiry < now {
-                return true
-            }
-        }
-        return false
     }
 }

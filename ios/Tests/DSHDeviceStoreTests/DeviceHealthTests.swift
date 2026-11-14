@@ -43,6 +43,19 @@ final class DeviceHealthTests: XCTestCase {
         )
     }
 
+    func testExpiredCAIsReported() {
+        let value = healthRecord()
+        XCTAssertEqual(
+            DeviceHealth.issues(
+                record: value,
+                now: now,
+                caFingerprint: value.instanceId,
+                caNotAfter: Date(timeIntervalSince1970: 1_734_000_000)
+            ),
+            [.certificateExpired]
+        )
+    }
+
     func testSystemTrustRecordHasNoCertificateIssue() {
         var value = healthRecord()
         value.certificateAuthority = nil

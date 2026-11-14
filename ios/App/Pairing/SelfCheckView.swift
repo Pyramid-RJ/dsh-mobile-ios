@@ -165,9 +165,12 @@ struct SelfCheckView: View {
     }
 
     private func healthRows(for record: DeviceRecord) -> [Row] {
-        let fingerprint = record.certificateAuthority
-            .flatMap { CertificateAuthority(der: $0) }?.sha256Hex
-        let issues = DeviceHealth.issues(record: record, caFingerprint: fingerprint)
+        let authority = record.certificateAuthority.flatMap { CertificateAuthority(der: $0) }
+        let issues = DeviceHealth.issues(
+            record: record,
+            caFingerprint: authority?.sha256Hex,
+            caNotAfter: authority?.notAfter
+        )
         guard !issues.isEmpty else {
             return [Row(title: "凭据 · \(record.displayName)", detail: "有效期与 CA 指纹正常", level: .pass)]
         }

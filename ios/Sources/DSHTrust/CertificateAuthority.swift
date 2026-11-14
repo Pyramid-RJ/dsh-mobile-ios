@@ -20,6 +20,19 @@ public struct CertificateAuthority {
         self.certificate = certificate
     }
 
+    /// End of the certificate's validity window, read from the DER.
+    ///
+    /// iOS has no `SecCertificateCopyValues`, so this is how an expired pinned CA
+    /// is recognised (docs/04 section 2, point 3).
+    public var notAfter: Date? {
+        X509Validity.notAfter(der: der)
+    }
+
+    /// Start of the validity window.
+    public var notBefore: Date? {
+        X509Validity.notBefore(der: der)
+    }
+
     /// Accepts a PEM block (the -----BEGIN CERTIFICATE----- form).
     public init?(pem: String) {
         guard let der = CertificateAuthority.der(fromPEM: pem) else { return nil }
