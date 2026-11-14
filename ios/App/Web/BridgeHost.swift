@@ -288,21 +288,6 @@ final class BridgeHost: NSObject, WKScriptMessageHandler {
         return try await client.renew(deviceToken: deviceToken)
     }
 
-    /// Runs a snippet in the page and hands the result back. Used by the shell's
-    /// own controls (the newline button) that have no page action to call.
-    func runInPage(_ script: String, completion: @escaping (Any?) -> Void) {
-        guard let webView else {
-            completion(nil)
-            return
-        }
-        webView.evaluateJavaScript(script) { result, error in
-            if let error {
-                NSLog("%@", "page script failed: " + error.localizedDescription)
-            }
-            completion(result)
-        }
-    }
-
     /// Lets the in-app diagnostics screen read device facts through the same
     /// path a page request takes, so the log shows it like anything else.
     func diagnose() async -> BridgeReply {

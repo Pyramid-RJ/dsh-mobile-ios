@@ -73,28 +73,6 @@ struct BridgeLogScreen: View {
         if !reply.ok {
             BridgeLog.shared.append("diagnostics failed", detail: reply.message)
         }
-        // The page's Enter translation keys off these attributes; record them so
-        // a broken newline can be traced to the editor instead of guessed at.
-        let probe = """
-        (function () {
-          var els = document.querySelectorAll('[data-composer-input]');
-          var e = els[0];
-          return JSON.stringify({
-            count: els.length,
-            contenteditable: e ? e.getAttribute('contenteditable') : null,
-            inputmode: e ? e.getAttribute('inputmode') : null,
-            ariaHaspopup: e ? e.getAttribute('aria-haspopup') : null,
-            isContentEditable: e ? e.isContentEditable : null,
-            native: typeof window.__DSH_MOBILE_NATIVE__,
-            keyboard: window.__DSH_MOBILE_KEYBOARD_STATE__ || null
-          });
-        })();
-        """
-        host.runInPage(probe) { result in
-            Task { @MainActor in
-                BridgeLog.shared.append("composer probe", detail: String(describing: result ?? "nil"))
-            }
-        }
     }
 
     private func copyAll() {
