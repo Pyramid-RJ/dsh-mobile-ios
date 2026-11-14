@@ -26,6 +26,22 @@ struct RootView: View {
         Bundle.main.bundleIdentifier ?? "?"
     }
 
+    /// The status row used to say "未实现（P1）" long after P1 shipped.
+    private var connectionSummary: String {
+        switch model.connection {
+        case .idle:
+            return model.devices.isEmpty ? "未配对" : "未连接"
+        case .connecting(let name):
+            return "连接 " + name + "…"
+        case .connected(let name):
+            return "已连接 " + name
+        case .revoked(let name):
+            return name + " 已被移除"
+        case .failed(_, let reason):
+            return "连接失败：" + reason
+        }
+    }
+
     var body: some View {
         NavigationStack {
             Form {
@@ -33,7 +49,7 @@ struct RootView: View {
                     LabeledContent("版本", value: appVersion)
                     LabeledContent("Bundle ID", value: bundleIdentifier)
                     LabeledContent("系统", value: UIDevice.current.systemVersion)
-                    LabeledContent("配对与网页", value: "未实现（P1）")
+                    LabeledContent("配对与网页", value: connectionSummary)
                 }
 
                 if case .revoked(let name) = model.connection {
@@ -59,14 +75,18 @@ struct RootView: View {
                     .textInputAutocapitalization(.never)
                     .autocorrectionDisabled()
 
+                    // Two buttons in one Form row become a single tap target
+                    // unless each carries a borderless style.
                     HStack {
                         Button("解析") { parse() }
+                            .buttonStyle(.borderless)
                         Spacer()
                         Button {
                             showsScanner = true
                         } label: {
                             Label("扫码", systemImage: "qrcode.viewfinder")
                         }
+                        .buttonStyle(.borderless)
                         .disabled(pairing.isPairing)
                     }
                     Text(result)
@@ -175,14 +195,28 @@ struct RootView: View {
 
     /// A scanned pairing code goes through the same path as a pasted one, and
     /// pairs straight away: US-3 is "scan and you are in".
+    ///
+    /// A bare origin is a valid *paste* (F-1.1 accepts it), but it is not a
+    /// pairing code: scanning a random URL must not overwrite the field or send
+    /// the gateway a request that can only fail.
     private func acceptScanned(_ code: String) {
-        input = code.trimmingCharacters(in: .whitespacesAndNewlines)
-        parse()
-        guard parsedGateway != nil || parsedInstance != nil else {
-            result = "这不是 DSH 配对码，请对准电脑上的二维码。"
+        let trimmed = code.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard isPairingCode(trimmed) else {
+            result = "这不是 DSH 配对码（缺少配对 token），请对准电脑上的二维码。"
             return
         }
-        Task { await pairing.pair(input: input) }
+        input = trimmed
+        parse()
+        Task { await pairing.pair(input: trimmed) }
+    }
+
+    /// True only for something that can actually pair: a `dsh1./dsh2.` key, or a
+    /// pairing link that carries a token.
+    private func isPairingCode(_ text: String) -> Bool {
+        if text.hasPrefix("dsh1.") || text.hasPrefix("dsh2.") {
+            return (try? PairingKey.parse(text)) != nil
+        }
+        return (try? PairingLink.parse(text))?.token != nil
     }
 
     private func parse() {
