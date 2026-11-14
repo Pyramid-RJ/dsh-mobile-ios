@@ -23,6 +23,8 @@ final class CameraCapture: NSObject, UIImagePickerControllerDelegate, UINavigati
     private var timeoutTask: Task<Void, Never>?
     /// Kept so a newer request (or the page giving up) can take the picker down.
     private weak var presentedPicker: UIImagePickerController?
+    /// When the picker was presented, so the log can show how long it lived.
+    private var startedAt: Date?
 
     static var isAvailable: Bool {
         UIImagePickerController.isSourceTypeAvailable(.camera)
@@ -65,6 +67,14 @@ final class CameraCapture: NSObject, UIImagePickerControllerDelegate, UINavigati
         return try await withCheckedThrowingContinuation { continuation in
             self.continuation = continuation
             self.presentedPicker = controller
+            // The log has to show the whole lifecycle: three captures on
+            // 2026-11-14 came back `cancelled` within a second each, and
+            // nothing said whether the picker had even appeared.
+            self.startedAt = Date()
+            BridgeLog.shared.append(
+                "camera presenting",
+                detail: "from " + String(describing: type(of: presenter))
+            )
             self.timeoutTask = Task { @MainActor [weak self] in
                 try? await Task.sleep(nanoseconds: UInt64(Self.deadline * 1_000_000_000))
                 guard !Task.isCancelled else { return }
@@ -99,9 +109,15 @@ final class CameraCapture: NSObject, UIImagePickerControllerDelegate, UINavigati
 
         guard let image = info[.originalImage] as? UIImage,
               let data = image.jpegData(compressionQuality: 0.9) else {
+            BridgeLog.shared.append("camera shutter", detail: "no usable image in the result")
             finish(with: .failure(PickFailure.unreadable))
             return
         }
+        BridgeLog.shared.append(
+            "camera shutter",
+            detail: String(Int(image.size.width)) + "x" + String(Int(image.size.height))
+                + " jpeg " + String(data.count) + "B" + Self.lifetime(self)
+        )
         guard data.count <= FilePicker.maxBytes else {
             finish(with: .failure(PickFailure.tooLarge(data.count)))
             return
@@ -117,9 +133,15 @@ final class CameraCapture: NSObject, UIImagePickerControllerDelegate, UINavigati
         // A tap on 取消 and "something else was presented on top" arrive here
         // identically. The log has to tell them apart: on 2026-11-14 three
         // captures all came back `cancelled` and the reason was invisible.
-        BridgeLog.shared.append("camera cancelled", detail: Self.cancelReason(for: picker))
+        BridgeLog.shared.append("camera cancelled", detail: Self.cancelReason(for: picker) + Self.lifetime(self))
         picker.dismiss(animated: true)
         finish(with: .failure(PickFailure.cancelled))
+    }
+
+    /// "after 1.2s" — how long the picker stayed up, for the log.
+    static func lifetime(_ capture: CameraCapture) -> String {
+        guard let startedAt = capture.startedAt else { return "" }
+        return String(format: " after %.1fs", Date().timeIntervalSince(startedAt))
     }
 
     /// Why the picker went away, in words the log can show.
@@ -162,6 +184,7 @@ final class CameraCapture: NSObject, UIImagePickerControllerDelegate, UINavigati
         timeoutTask?.cancel()
         timeoutTask = nil
         presentedPicker = nil
+        startedAt = nil
         guard let continuation else { return }
         self.continuation = nil
         continuation.resume(with: result)
