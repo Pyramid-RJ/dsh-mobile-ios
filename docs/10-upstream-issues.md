@@ -165,6 +165,8 @@ iOS 端：装 0.9.0 壳 → 打开页面 → 「+」→ 计划 → 在文本框�
 
 壳侧已经把 `imeVisible` 发布正确（0.9.13 日志可见 `imeVisible=true/false` 随键盘正确切换），但回车仍不换行，说明条件里还有一项不满足（很可能是编辑器属性或事件被别处 `preventDefault`）。
 
-**壳侧兜底（0.9.14）**：网页工具栏加一个「换行」按钮，直接用 `document.execCommand('insertLineBreak')`（失败回退 `insertText`）在焦点编辑器里插入换行——走 WebKit 的编辑管线，编辑器能收到，不依赖 `isTrusted` 的合成事件。
+**壳侧兜底（0.9.15）**：键盘弹出时在**键盘正上方**显示一条工具条（`safeAreaInset` + `keyboardWillChangeFrame` 的高度），里面有「换行」和「完成」。「换行」用 `document.execCommand('insertLineBreak')`（失败回退 `insertText`）在焦点编辑器里插入换行——走 WebKit 的编辑管线，编辑器能收到，不依赖 `isTrusted` 的合成事件。
+
+> 0.9.14 先把按钮放在网页顶栏，用户要求改成贴着键盘的位置，0.9.15 移到键盘上方。系统输入法自带的「换行」属于系统编辑菜单，WebView 里加不进去。
 
 **诊断**：打开「桥日志」时会执行一次 `composer probe`，记录 `[data-composer-input]` 的数量、`contenteditable` 属性、`isContentEditable`、桥对象类型与键盘状态，用来定位页面的换行条件到底卡在哪一项。

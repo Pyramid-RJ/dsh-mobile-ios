@@ -1,4 +1,5 @@
 import SwiftUI
+import UIKit
 import WebKit
 import DSHPairing
 import DSHBridge
@@ -11,7 +12,9 @@ struct GatewayWebViewScreen: View {
 
     @Environment(\.dismiss) private var dismiss
     @State private var showsLog = false
-    @State private var newlineFeedback: String?
+    /// Height of the software keyboard, 0 when it is down. Drives the bar that
+    /// sits right above it.
+    @State private var keyboardHeight: CGFloat = 0
 
     var body: some View {
         GatewayWebView(
@@ -26,20 +29,58 @@ struct GatewayWebViewScreen: View {
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {
-                    Button {
-                        insertLineBreak()
-                    } label: {
-                        Image(systemName: "return")
-                    }
-                    .accessibilityLabel("换行")
-                }
-                ToolbarItem(placement: .topBarTrailing) {
                     Button("桥日志") { showsLog = true }
                 }
+            }
+            // The page's Enter translation never fires on this device, so the
+            // newline lives next to the keyboard instead of in the app's top bar.
+            .safeAreaInset(edge: .bottom, spacing: 0) {
+                if keyboardHeight > 0 {
+                    composerBar
+                }
+            }
+            .onReceive(NotificationCenter.default.publisher(for: UIResponder.keyboardWillChangeFrameNotification)) { note in
+                let end = note.userInfo?[UIResponder.keyboardFrameEndUserInfoKey] as? CGRect
+                keyboardHeight = Self.keyboardHeight(from: end)
+            }
+            .onReceive(NotificationCenter.default.publisher(for: UIResponder.keyboardWillHideNotification)) { _ in
+                keyboardHeight = 0
             }
             .sheet(isPresented: $showsLog) {
                 BridgeLogScreen()
             }
+    }
+
+    private var composerBar: some View {
+        HStack(spacing: 18) {
+            Button {
+                insertLineBreak()
+            } label: {
+                Label("换行", systemImage: "return")
+                    .labelStyle(.titleAndIcon)
+            }
+            Spacer()
+            Button("完成") {
+                UIApplication.shared.sendAction(
+                    #selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil
+                )
+            }
+        }
+        .font(.callout)
+        .padding(.horizontal, 18)
+        .padding(.vertical, 8)
+        .background(.bar)
+        .overlay(alignment: .top) {
+            Divider()
+        }
+    }
+
+    /// Keyboard height from its end frame, 0 when it is off screen.
+    private static func keyboardHeight(from frame: CGRect?) -> CGFloat {
+        guard let frame else { return 0 }
+        let screen = UIScreen.main.bounds
+        let overlap = max(0, screen.maxY - frame.minY)
+        return overlap > 1 ? overlap : 0
     }
 
     /// The page's own Enter translation never fires on this device, so the shell
