@@ -17,6 +17,9 @@ struct SelfCheckView: View {
     @State private var rows: [Row] = []
     @State private var running = false
     @State private var copied = false
+    @State private var address = ""
+    @State private var addressResult: String?
+    @State private var probing = false
 
     struct Row: Identifiable {
         enum Level { case pass, warn, fail }
@@ -60,6 +63,37 @@ struct SelfCheckView: View {
                         }
                     }
                 }
+            }
+
+            Section("地址连通性") {
+                TextField("https://dsh.example.com 或 https://192.168.1.5:3443", text: $address)
+                    .font(.footnote.monospaced())
+                    .textInputAutocapitalization(.never)
+                    .autocorrectionDisabled()
+                    .keyboardType(.URL)
+                Button {
+                    Task {
+                        probing = true
+                        let result = await RemoteHealthProbe.check(address)
+                        addressResult = (result.ok ? "✅ " : "❌ ") + result.detail
+                        probing = false
+                    }
+                } label: {
+                    HStack {
+                        Label("测试 /mobile-access/health", systemImage: "antenna.radiowaves.left.and.right")
+                        Spacer()
+                        if probing { ProgressView() }
+                    }
+                }
+                .disabled(probing || address.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                if let addressResult {
+                    Text(addressResult)
+                        .font(.caption.monospaced())
+                        .foregroundStyle(addressResult.hasPrefix("✅") ? .green : .orange)
+                }
+                Text("用系统信任探测，不需要配对；远程隧道地址在配对前可以先在这里确认能不能连通。")
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
             }
 
             Section("说明") {
