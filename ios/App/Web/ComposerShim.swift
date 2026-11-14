@@ -17,10 +17,10 @@ import Foundation
 ///    back. Each flip reflows the composer, which is slow.
 ///
 ///    The shell publishes `window.__DSH_MOBILE_KEYBOARD_STATE__` from the real
-///    keyboard notifications, so the shim can keep each write from changing the
-///    state the user is in: the withhold is ignored while the keyboard is up,
-///    and the restore is ignored while it is down (except for a tap on the
-///    editor itself, which is the user asking for the keyboard).
+///    keyboard frame, so the shim can drop exactly one write: withholding while
+///    the keyboard is already up. Every restore still runs, which keeps
+///    `inputmode` from getting stuck (a stuck `inputmode="none"` makes WebKit
+///    treat Enter as a hardware key and breaks newlines).
 enum ComposerShim {
     static let script = """
     (() => {
@@ -35,22 +35,14 @@ enum ComposerShim {
         event.stopPropagation();
       }, true);
 
-      // --- 2. keep the keyboard state stable while the composer is in use ----
-      // The page withholds the IME by writing inputmode="none" on the editor
-      // and restores it on any other pointerdown. Both writes change the
-      // keyboard: withholding hides it, restoring lets the next focus raise it
-      // (the Add button focuses the draft on purpose). The shell publishes
-      // __DSH_MOBILE_KEYBOARD_STATE__ so the two can be told apart:
-      //   * keyboard up   -> ignore the withhold, the keyboard stays up
-      //   * keyboard down -> keep the withhold, so the programmatic focus does
-      //                      not raise it; only a tap on the editor may clear it
+      // --- 2. do not hide a keyboard that is already up ----------------------
+      // The page withholds the IME (inputmode="none") when the Add trigger is
+      // pressed, which is right while the keyboard is down: it lets the button
+      // focus the draft without raising the keyboard. It is wrong while the
+      // keyboard is already up, because withholding hides it and the composer
+      // reflows. Only that one write is dropped; every restore still runs, so
+      // inputmode can never get stuck and Enter keeps its normal behaviour.
       const EDITOR = '[data-composer-input]';
-
-      let pointerInEditor = false;
-      document.addEventListener('pointerdown', (event) => {
-        const target = event.target instanceof Element ? event.target : null;
-        pointerInEditor = target !== null && target.closest(EDITOR) !== null;
-      }, true);
 
       const keyboardVisible = () => {
         const state = window.__DSH_MOBILE_KEYBOARD_STATE__;
@@ -66,16 +58,6 @@ enum ComposerShim {
           return;
         }
         return setAttribute.call(this, name, value);
-      };
-
-      const removeAttribute = Element.prototype.removeAttribute;
-      Element.prototype.removeAttribute = function (name) {
-        if (String(name).toLowerCase() === 'inputmode'
-            && this instanceof Element && this.matches(EDITOR)
-            && !keyboardVisible() && !pointerInEditor) {
-          return;
-        }
-        return removeAttribute.call(this, name);
       };
     })();
     """

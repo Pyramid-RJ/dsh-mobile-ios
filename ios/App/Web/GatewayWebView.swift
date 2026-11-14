@@ -131,10 +131,14 @@ struct GatewayWebView: UIViewRepresentable {
         /// composer control has to guess.
         func startKeyboardReporting(for webView: WKWebView) {
             let center = NotificationCenter.default
-            let show = center.addObserver(
-                forName: UIResponder.keyboardWillShowNotification, object: nil, queue: .main
-            ) { [weak self, weak webView] _ in
-                self?.keyboardVisible = true
+            // The frame notification carries the end frame, which is the only
+            // reliable way to tell "moved" from "gone": WillShow/WillHide are
+            // not always paired for a WKWebView keyboard.
+            let change = center.addObserver(
+                forName: UIResponder.keyboardWillChangeFrameNotification, object: nil, queue: .main
+            ) { [weak self, weak webView] note in
+                let end = note.userInfo?[UIResponder.keyboardFrameEndUserInfoKey] as? CGRect
+                self?.keyboardVisible = Self.isKeyboardFrameVisible(end)
                 self?.publishKeyboardState(to: webView)
             }
             let hide = center.addObserver(
@@ -143,8 +147,15 @@ struct GatewayWebView: UIViewRepresentable {
                 self?.keyboardVisible = false
                 self?.publishKeyboardState(to: webView)
             }
-            keyboardObservers = [show, hide]
+            keyboardObservers = [change, hide]
             publishKeyboardState(to: webView)
+        }
+
+        /// A keyboard frame that starts above the bottom edge is on screen.
+        private static func isKeyboardFrameVisible(_ frame: CGRect?) -> Bool {
+            guard let frame, frame.height > 0 else { return false }
+            let screenHeight = UIScreen.main.bounds.height
+            return frame.minY < screenHeight - 1
         }
 
         func stopKeyboardReporting() {

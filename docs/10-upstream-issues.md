@@ -141,14 +141,14 @@ iOS 端：装 0.9.0 壳 → 打开页面 → 「+」→ 计划 → 在文本框�
 - 但 `resolveComposerImePolicy` 对**任何其他** pointerdown 都返回 `restore`，直接删掉 `inputmode="none"`；
 - 菜单是覆盖在编辑器上的一层，手指在菜单上滑动同样触发 pointerdown → `restore` → 编辑器仍持有焦点 → 键盘重新弹出 → 布局被顶起 → 菜单显示不全。
 
-**壳侧缓解（0.9.11）**：壳把真实键盘状态发布到页面——`window.__DSH_MOBILE_KEYBOARD_STATE__ = { imeVisible, noHardwareKeyboard }`，由 `keyboardWillShow/Hide` 通知驱动（这同时补上了 docs/03 §7 的 `keyboard.state` 契约）。`ComposerShim` 据此让页面的两次写入**不改变用户当前所处的状态**：
+**壳侧缓解（0.9.12，最小化）**：壳把真实键盘状态发布到页面——`window.__DSH_MOBILE_KEYBOARD_STATE__ = { imeVisible, noHardwareKeyboard }`，由 `keyboardWillChangeFrame` 的结束 frame 判定（同时补上 docs/03 §7 的 `keyboard.state` 契约）。`ComposerShim` **只丢一次写入**：
 
 | 当前键盘 | 页面动作 | 结果 |
 | --- | --- | --- |
-| 弹着 | `withhold`（加 `inputmode="none"`） | **忽略**，键盘保持弹着 |
-| 收起 | `restore`（删 `inputmode="none"`） | **忽略**，避免「+」按钮主动 focus 编辑器时把键盘叫起来 |
-| 收起 | 用户点编辑器 | 放行 `restore`，键盘正常弹出 |
+| 弹着 | `withhold`（加 `inputmode="none"`） | **丢弃**，键盘保持弹着 |
+| 收起 | `withhold` | 放行——这正是「+」focus 编辑器却不唤起键盘的机制 |
+| 任意 | `restore`（删 `inputmode="none"`） | **一律放行** |
 
-这样点「+」和在菜单上滑动都不再改变键盘状态，composer 不再上下重排。
+前两版（0.9.10/0.9.11）把 `restore` 也拦了，结果 `inputmode="none"` 卡在编辑器上：WebKit 因此把回车当硬件键处理（不能换行、菜单里直接激活默认项），点编辑器也关不掉菜单。0.9.12 只保留「键盘已经弹着时别再 withhold」这一条，其余全部交还页面。
 
 **边界**：只依赖 `data-composer-input` 这一个既有属性与壳发布的键盘状态；上游改了标记就自动失效，不会误伤。上游修好（`resolveComposerImePolicy` 不再改 `inputmode`）之后应删除这段。
