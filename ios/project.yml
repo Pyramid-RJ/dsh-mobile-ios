@@ -36,6 +36,8 @@ targets:
         product: DSHBridge
       - package: DSHCore
         product: DSHDeviceStore
+      - package: DSHCore
+        product: DSHDiscovery
     settings:
       base:
         PRODUCT_NAME: DSHMobile

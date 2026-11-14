@@ -13,6 +13,7 @@ struct RootView: View {
     @State private var parsedInstance: String?
     @StateObject private var pairing = PairingCoordinator()
     @StateObject private var model = AppModel()
+    @StateObject private var discovery = BonjourDiscovery()
     @State private var showsScanner = false
 
     private var appVersion: String {
@@ -142,6 +143,38 @@ struct RootView: View {
                     }
                 }
 
+                if !discovery.hosts.isEmpty || discovery.state != "未开始" {
+                    Section("附近的电脑") {
+                        ForEach(discovery.hosts) { host in
+                            Button {
+                                connect(discovered: host)
+                            } label: {
+                                VStack(alignment: .leading, spacing: 2) {
+                                    HStack(spacing: 6) {
+                                        Text(host.name)
+                                        if isPaired(host) == false {
+                                            Text("未配对")
+                                                .font(.caption2)
+                                                .foregroundStyle(.orange)
+                                        }
+                                    }
+                                    Text(host.origin)
+                                        .font(.caption.monospaced())
+                                        .foregroundStyle(.secondary)
+                                }
+                            }
+                        }
+                        Text(discovery.state)
+                            .font(.footnote)
+                            .foregroundStyle(.secondary)
+                        ForEach(discovery.log.suffix(3), id: \.self) { line in
+                            Text(line)
+                                .font(.caption2.monospaced())
+                                .foregroundStyle(.secondary)
+                        }
+                    }
+                }
+
                 Section("配对") {
                     Button("配对并打开") {
                         Task {
@@ -178,6 +211,8 @@ struct RootView: View {
             }
             .navigationTitle("DSH Mobile")
             .task { await model.restore() }
+            .task { discovery.start() }
+            .onDisappear { discovery.stop() }
             .sheet(isPresented: $showsScanner) {
                 NavigationStack {
                     QRScannerView { code in
@@ -207,6 +242,20 @@ struct RootView: View {
             await pairing.pair(input: trimmed)
             adoptPairingIfSucceeded()
         }
+    }
+
+    private func isPaired(_ host: BonjourDiscovery.DiscoveredHost) -> Bool {
+        model.devices.contains { $0.instanceId == host.id }
+    }
+
+    /// A discovered computer can only be connected to when it is already paired:
+    /// the announcement carries no pairing token.
+    private func connect(discovered host: BonjourDiscovery.DiscoveredHost) {
+        guard let record = model.devices.first(where: { $0.instanceId == host.id }) else {
+            result = "「\(host.name)」还没有配对，请扫描它的配对二维码。"
+            return
+        }
+        Task { await model.connect(record) }
     }
 
     /// A finished pairing wrote a fresh record: let the device list pick it up

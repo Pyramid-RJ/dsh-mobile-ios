@@ -63,6 +63,8 @@ P0 Spike ──► P1 配对与信任 ──► P2 设备与持久化 ──► 
 
 ### P5 发现与远程（4 人日）
 
+> 进度（2026-11-15）：`NWBrowser` 发现已实现（0.9.21）——`DSHDiscovery` 校验公告（恰好 5 键、`protocol==1`、64 位 hex instanceId），`BonjourDiscovery` 浏览 `_dsh-mobile._tcp` 并在首页列出「附近的电脑」，已配对的点一下即可连接。待真机验证（S-4）。
+
 - `NWBrowser` 发现（若 S-4 通过）
 - 手动地址输入
 - 远程通道验证（至少 cloudflared 命名隧道）
