@@ -57,10 +57,10 @@ struct RootView: View {
                             .font(.footnote)
                             .foregroundStyle(.secondary)
                     } else {
-                        ForEach(model.devices) { device in
-                            Button(device.displayName) {
-                                Task { await model.connect(device) }
-                            }
+                        NavigationLink {
+                            DeviceListView(model: model)
+                        } label: {
+                            LabeledContent("设备", value: "\(model.devices.count) 台")
                         }
                     }
 
@@ -68,7 +68,7 @@ struct RootView: View {
                         .font(.footnote)
 
                     if let session = model.session {
-                        NavigationLink("打开 (session.origin.host)") {
+                        NavigationLink("打开 \(session.origin.host)") {
                             GatewayWebViewScreen(session: session)
                         }
                     }

@@ -10,18 +10,34 @@ import DSHTrust
 /// This is what makes "reopen the app and be back in DSH" work (US-4): the
 /// credential and the pinned CA live in the Keychain, so nothing is re-typed
 /// after a relaunch or a 7-day re-sign.
+///
+/// P2 adds the edits the device list needs (rename, reorder, delete) and a
+/// reachability probe. Every edit goes through `DeviceRecordBook` and is written
+/// back immediately: the Keychain is the only copy, so a rename that is not
+/// saved is a rename that never happened.
 @MainActor
 final class AppModel: ObservableObject {
+    /// What the list can say about a stored computer right now.
+    enum Reachability: Equatable {
+        case unknown
+        case checking
+        case reachable
+        case unreachable(String)
+    }
+
     @Published private(set) var devices: [DeviceRecord] = []
     @Published private(set) var status = "未加载"
     @Published private(set) var session: BrowserSession?
     @Published private(set) var log: [String] = []
+    @Published private(set) var reachability: [UUID: Reachability] = [:]
 
     private let store = KeychainDeviceRecordStore()
+    private var book = DeviceRecordBook()
 
     func restore() async {
         do {
-            devices = try store.load().records
+            book = try store.load()
+            devices = book.records
         } catch {
             status = "读取配对记录失败：" + error.localizedDescription
             return
@@ -34,6 +50,66 @@ final class AppModel: ObservableObject {
         await connect(first)
     }
 
+    // MARK: - List edits
+
+    /// Renames one computer. An empty name is ignored rather than saved.
+    func rename(_ record: DeviceRecord, to name: String) {
+        let trimmed = name.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty, trimmed != record.displayName else { return }
+        book.rename(id: record.id, to: trimmed)
+        persist()
+    }
+
+    /// Deletes one computer from this device. The computer keeps its own record;
+    /// this only forgets the local credential and pinned CA (docs/04).
+    func remove(_ record: DeviceRecord) {
+        book.remove(id: record.id)
+        reachability[record.id] = nil
+        if session?.origin.description == record.origin {
+            session = nil
+        }
+        persist()
+    }
+
+    /// Makes one computer the default: `restore()` connects to the first entry.
+    func moveToFront(_ record: DeviceRecord) {
+        book.moveToFront(id: record.id)
+        persist()
+    }
+
+    private func persist() {
+        devices = book.records
+        do {
+            try store.save(book)
+        } catch {
+            status = "保存配对记录失败：" + error.localizedDescription
+        }
+    }
+
+    // MARK: - Reachability
+
+    /// Probes one computer without touching the current session.
+    func checkReachability(_ record: DeviceRecord) async {
+        reachability[record.id] = .checking
+        do {
+            let (client, urlSession) = try makeClient(for: record, timeout: 6)
+            defer { urlSession.finishTasksAndInvalidate() }
+            _ = try await client.probe(deviceToken: record.deviceToken)
+            reachability[record.id] = .reachable
+        } catch {
+            reachability[record.id] = .unreachable(Self.shortReason(error))
+        }
+    }
+
+    /// Probes every stored computer; the list refreshes as each answer lands.
+    func checkAllReachability() async {
+        for record in devices {
+            await checkReachability(record)
+        }
+    }
+
+    // MARK: - Connect
+
     func connect(_ record: DeviceRecord) async {
         session = nil
         log = []
@@ -43,23 +119,8 @@ final class AppModel: ObservableObject {
             if record.isExpired() {
                 throw MobileAccessFailure.deviceExpired
             }
-            let origin = try PairingLink.parse(record.origin).origin
-            guard let authority = CertificateAuthority(der: record.certificateAuthority) else {
-                throw PairingFlowError.notACertificate
-            }
-
-            let evaluator = PinnedTrustEvaluator(certificateAuthority: authority)
-            let delegate = PinnedSessionDelegate(evaluator: evaluator)
-            let configuration = URLSessionConfiguration.ephemeral
-            configuration.timeoutIntervalForRequest = 15
-            let urlSession = URLSession(configuration: configuration, delegate: delegate, delegateQueue: nil)
+            let (client, urlSession) = try makeClient(for: record, timeout: 15)
             defer { urlSession.finishTasksAndInvalidate() }
-
-            let client = MobileAccessClient(
-                origin: origin,
-                transport: URLSessionTransport(session: urlSession),
-                expectedInstanceId: record.instanceId
-            )
 
             _ = try await client.probe(deviceToken: record.deviceToken)
             append("probe ok")
@@ -67,23 +128,64 @@ final class AppModel: ObservableObject {
             append("renew ok，会话到期 " + ISO8601DateFormatter().string(from: renewed.sessionExpiresAt))
 
             session = BrowserSession(
-                origin: origin,
-                evaluator: evaluator,
-                cookies: SessionCookiePlan.cookies(for: origin, session: renewed),
+                origin: try PairingLink.parse(record.origin).origin,
+                evaluator: try evaluator(for: record),
+                cookies: SessionCookiePlan.cookies(
+                    for: try PairingLink.parse(record.origin).origin,
+                    session: renewed
+                ),
                 deviceToken: record.deviceToken
             )
+            reachability[record.id] = .reachable
+            book.markConnected(id: record.id)
+            persist()
             status = "已连接 " + record.displayName
         } catch {
             status = "连接失败：" + error.localizedDescription
+            reachability[record.id] = .unreachable(Self.shortReason(error))
             append("error: " + String(describing: error))
         }
     }
 
     func forgetAll() {
         try? store.delete()
+        book = DeviceRecordBook()
         devices = []
+        reachability = [:]
         session = nil
         status = "已清除本机配对记录"
+    }
+
+    // MARK: - Plumbing
+
+    private func evaluator(for record: DeviceRecord) throws -> PinnedTrustEvaluator {
+        guard let authority = CertificateAuthority(der: record.certificateAuthority) else {
+            throw PairingFlowError.notACertificate
+        }
+        return PinnedTrustEvaluator(certificateAuthority: authority)
+    }
+
+    private func makeClient(for record: DeviceRecord, timeout: TimeInterval) throws -> (MobileAccessClient, URLSession) {
+        let origin = try PairingLink.parse(record.origin).origin
+        let delegate = PinnedSessionDelegate(evaluator: try evaluator(for: record))
+        let configuration = URLSessionConfiguration.ephemeral
+        configuration.timeoutIntervalForRequest = timeout
+        let urlSession = URLSession(configuration: configuration, delegate: delegate, delegateQueue: nil)
+        let client = MobileAccessClient(
+            origin: origin,
+            transport: URLSessionTransport(session: urlSession),
+            expectedInstanceId: record.instanceId
+        )
+        return (client, urlSession)
+    }
+
+    /// One line for the list: the error's own text is too long for a row.
+    private static func shortReason(_ error: Error) -> String {
+        if let failure = error as? MobileAccessFailure {
+            return failure.description
+        }
+        let text = error.localizedDescription
+        return text.count > 60 ? String(text.prefix(57)) + "…" : text
     }
 
     private func append(_ line: String) {

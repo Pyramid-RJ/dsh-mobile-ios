@@ -106,7 +106,7 @@ static internal(set) var deadline: TimeInterval = 60   // ← 测 C-10 时临时
 | C-2 拍照成功 | ✅ | `camera shutter 3024x4032 jpeg 1575040B after 13.3s` → `reply ok`，照片作为附件进入对话 |
 | C-6 取消 | ✅ | `camera cancelled / user tapped cancel after 2.6s` → `reply failed cancelled` |
 | C-7 连续两次 | ✅ | 两次 `invoke` 各自独立完成（一次 ok、一次 cancelled），没有互相顶掉 |
-| C-3/C-4 拒绝权限 | 未测 | 需要卸载重装把权限重置为 `notDetermined` |
+| C-3/C-4 拒绝权限 | ✅ | 2026-11-14 / 0.9.3：设置里关掉相机权限后连点 3 次，每次立刻 `camera status=denied result=permission_denied` + `reply failed permission_denied`，**不再弹系统询问**，页面拿到明确文案 |
 | C-9 超大图 | 未测 | 3024x4032 / 1.5 MB，离 8 MiB 上限还远 |
 | C-10 超时 | 未测 | 需临时把 `deadline` 改短（§4.1） |
 

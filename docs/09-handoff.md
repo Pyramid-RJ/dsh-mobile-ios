@@ -25,6 +25,7 @@ iOS 壳已经能配对、能打开 DSH 页面、页面走原生分支，桥的�
 | 页面缩放 | `invoke mobile.display-scale.get` → `reply ok`；重开值不变 |
 | 切换电脑 | **长按抽屉开关 500 ms** → 退回设备列表（不是菜单项，见 docs/03 §6.0.1） |
 | `camera.capture` | 2026-11-14 / 0.9.2：`camera presenting` → `camera shutter 3024x4032 jpeg 1575040B after 13.3s` → `reply ok`，照片作为附件进入对话；取消路径 `user tapped cancel after 2.6s` → `reply failed cancelled` |
+| 相机权限被拒 | 2026-11-14 / 0.9.3：关掉权限后连点 3 次，均 `permission_denied` 且不重复弹询问（C-3/C-4） |
 | 文本框模式词条删除 | 2026-11-14 / 0.9.1：`/plan`、`/goal` 词条退格可正常删除（壳侧 shim，见 [10](10-upstream-issues.md)） |
 
 ## 3 未验证（不要当成通过）
