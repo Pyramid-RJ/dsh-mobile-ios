@@ -48,6 +48,15 @@ struct GatewayWebView: UIViewRepresentable {
                 forMainFrameOnly: true
             )
         )
+        // Temporary: the composer cannot delete its command chips on iOS
+        // (docs/10). Remove once the upstream fix ships.
+        configuration.userContentController.addUserScript(
+            WKUserScript(
+                source: ComposerChipShim.script,
+                injectionTime: .atDocumentStart,
+                forMainFrameOnly: true
+            )
+        )
 
         let webView = WKWebView(frame: .zero, configuration: configuration)
         webView.navigationDelegate = context.coordinator

@@ -29,15 +29,17 @@ node docs/patches/simulate-chip-delete.js
 输出（2026-11-14 实测）：
 
 ```text
-chromium + old PASSIVE_KEYS  presses=2 deleted=1 chipLeft=no
-chromium + new PASSIVE_KEYS  presses=2 deleted=1 chipLeft=no
-webkit + old PASSIVE_KEYS    presses=2 deleted=0 chipLeft=yes
-webkit + new PASSIVE_KEYS    presses=2 deleted=1 chipLeft=no
+plain text, old PASSIVE_KEYS       presses=2 deleted=0 chipLeft=yes
+plain text, new PASSIVE_KEYS       presses=2 deleted=1 chipLeft=no
+plain text, shell shim             presses=2 deleted=1 chipLeft=no
+plain text, shim + new PASSIVE_KEYS presses=2 deleted=1 chipLeft=no
 
-expectation: chromium deletes either way; webkit only deletes with the fix
+expectation: without a fix the chip never goes away; the upstream patch
+and the shell shim each make the second Backspace delete it, and they
+do not interfere when both are present.
 RESULT: matches the diagnosis
 ```
 
-它证明的是**状态机层面**的结论：Chromium 的同步删除路径不受影响（无回归），WebKit 的「keydown → microtask → beforeinput」顺序在旧代码下会把选中态清掉、新代码下可以正常两步删除。
+模型按编辑器的真实绑定来跑：`registerPlainText`（`runtime.ts:108`）的键位表不处理 Backspace，删除只以 `beforeinput` 到达，所以「keydown → microtask → beforeinput」这个顺序在**所有引擎**上都成立，不只是 iOS。它证明的是**状态机层面**的结论：旧代码永远删不掉，上游补丁和壳侧 shim 各自都能修好，两者共存也不冲突。
 
 它**不能**代替真机验证：iOS 上 `beforeinput` 的实际触发时机、以及 Lexical 在 WKWebView 里的键位表行为，仍需上游在真机上复测两条路径——「退格两次删除」和「方向键跨过词条」。

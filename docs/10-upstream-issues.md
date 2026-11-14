@@ -2,7 +2,7 @@
 
 > 记录 2026-11-14 用户在 iOS 端反馈的问题：从「+」命令菜单里选「计划」或「目标」后，文本框里会出现一个词条（`/plan`、`/goal` 的引用 chip），**按退格删不掉**。
 >
-> 结论：**不是 iOS 壳的问题**，是 DSH 前端 `dsh-client-ui-conversation` 的命令 chip 删除逻辑在 iOS WebKit 上的时序缺陷。本文记录证据、影响面、临时绕法和建议的上游补丁。
+> 结论：根因在 DSH 前端 `dsh-client-ui-conversation` 的命令 chip 删除逻辑（keydown 兜底抢在 `beforeinput` 之前清掉选中态），**与 iOS 壳无关**。本文记录证据、影响面、临时绕法、建议的上游补丁，以及壳侧已经落地的临时缓解。
 
 ## 1 现象
 
@@ -10,7 +10,7 @@
 | --- | --- | --- |
 | 「+」菜单 → 计划 | 文本框出现 `/plan` 词条，退格可删 | 词条出现，退格**只是高亮，再按也删不掉** |
 | 「+」菜单 → 目标 | 同上（`/goal` 词条） | 同上 |
-| 桌面浏览器 | 退格两次删除 | 正常 |
+| 桌面浏览器 | 退格两次删除 | **未验证**；按源码推断同样删不掉（见 §3 末尾） |
 
 ## 2 为什么不是 iOS 壳
 
@@ -47,7 +47,9 @@ iOS 上退格的时序是 **keydown → microtask → beforeinput**：
 2. microtask 先跑：此时还没有任何删除，于是 `clear()` 把选中态清掉；
 3. beforeinput 才到：`$decide` 发现词条没被选中 → 重新「选中」并 `preventDefault()`。
 
-结果：**每次退格都在「选中 → 清掉 → 再选中」之间循环，永远走不到真正删除那一步**。桌面上第 2 步不存在（删除在 keydown 内同步发生，`$decide` 已把 `keyWithoutDeletion` 置回 false），所以只有移动端 WebKit 中招。
+结果：**每次退格都在「选中 → 清掉 → 再选中」之间循环，永远走不到真正删除那一步**。
+
+**这不是 iOS 独有的**：编辑器用的是 Lexical 的 `registerPlainText`（`runtime.ts:108`），而它的键位表（`keymap.ts`）只处理方向键/Tab/Esc/空格/回车，**没有注册 Backspace**，所以删除在任何引擎上都只能以 `beforeinput` 到达——第 2 步的清掉在桌面浏览器同样会发生。iOS 只是最先被报告的地方。
 
 `PASSIVE_KEYS` 里只列了 `Shift/Control/Alt/Meta/Unidentified/Process`，注释也写了「IME 或虚拟键盘的删除会以 input 事件后到」——但 iOS 的退格 keydown 报的是 `Backspace`，不在这个集合里，于是被当成「没产生删除的键」清掉了。
 
@@ -56,7 +58,19 @@ iOS 上退格的时序是 **keydown → microtask → beforeinput**：
 1. **全选再删**：长按/双击选中全部文本后删除。范围选择不是折叠光标，`$commandChipBesideCaret` 直接返回 null，删除照常生效；
 2. **计划模式**：点输入框工具条上的「计划模式」chip（它是按钮，走 `/plan off`），或直接发 `/plan off`；
 3. **目标**：发 `/goal clear`；
-4. 桌面浏览器上不存在此问题。
+4. 装 0.9.1 及以后的壳：壳侧已加临时缓解（§4.1），退格两次即可删除。
+
+### 4.1 壳侧临时缓解（已落地，0.9.1）
+
+`ios/App/Web/ComposerChipShim.swift` 在文档开始时注入一个**捕获阶段**的 keydown 监听：当编辑器报告有词条被选中（根元素带 `data-composer-chip-selected`）、且按键是 `Backspace`/`Delete`、且事件发生在该编辑器内时，`stopPropagation()` 掉这次 keydown。
+
+这样编辑器的 keydown 兜底不会排队那个清选中的 microtask，选中态保留；随后 WebKit 照常派发 `beforeinput`，`$decide` 看到「已选中」直接放行，词条被删掉。
+
+边界：
+
+- 只在「有词条被选中 + 退格/删除键 + 编辑器内」时介入，其它按键与其它区域完全不受影响；
+- 属性名一旦被上游改掉，shim 自动失效（不报错、不误伤）；
+- 上游修好之后**应当删除**这个脚本，`GatewayWebView.swift` 里的注入点和这里一起删。
 
 ## 5 建议的上游补丁（一行）
 
