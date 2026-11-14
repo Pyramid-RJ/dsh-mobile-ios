@@ -204,6 +204,9 @@ struct RootView: View {
                     NavigationLink("自检") {
                         SelfCheckView(model: model, discovery: discovery)
                     }
+                    NavigationLink("验收清单") {
+                        ChecklistView()
+                    }
                     NavigationLink("S-1 探针：WKWebView + 固定私有 CA") {
                         S1ProbeView(initialGateway: parsedGateway ?? "", expectedInstanceId: parsedInstance)
                     }
