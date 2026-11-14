@@ -30,7 +30,7 @@ public struct DiscoveryAnnouncement: Equatable, Sendable {
             case .notAnObject:
                 return "announcement is not a JSON object"
             case .keySetMismatch(let keys):
-                return "announcement keys are " + keys.sorted().joined(separator: ",")
+                return "announcement keys are " + keys.joined(separator: ",")
             case .unsupportedProtocol(let value):
                 return "announcement protocol is " + String(value) + ", expected 1"
             case .invalidInstanceId:
@@ -57,7 +57,8 @@ public struct DiscoveryAnnouncement: Equatable, Sendable {
         }
         let keys = Set(dictionary.keys)
         guard keys == Self.keys else {
-            throw Rejection.keySetMismatch(Array(keys))
+            // Sorted so the value is deterministic and comparable in tests.
+            throw Rejection.keySetMismatch(keys.sorted())
         }
         let protocolValue = (dictionary["protocol"] as? NSNumber)?.intValue ?? -1
         guard protocolValue == 1 else {
