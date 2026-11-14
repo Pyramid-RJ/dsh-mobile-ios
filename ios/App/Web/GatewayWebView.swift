@@ -73,6 +73,7 @@ struct GatewayWebView: UIViewRepresentable {
         webView.navigationDelegate = context.coordinator
         host.webView = webView
         BridgeHostRegistry.shared.current = host
+        context.coordinator.startKeyboardReporting(for: webView)
 
         guard let url = session.origin.url(path: "/") else { return webView }
         let cookies = session.cookies
@@ -86,6 +87,10 @@ struct GatewayWebView: UIViewRepresentable {
     }
 
     func updateUIView(_ webView: WKWebView, context: Context) {}
+
+    static func dismantleUIView(_ uiView: WKWebView, coordinator: Coordinator) {
+        coordinator.stopKeyboardReporting()
+    }
 
     final class Coordinator: NSObject, WKNavigationDelegate {
         let bridgeHost: BridgeHost
@@ -104,6 +109,9 @@ struct GatewayWebView: UIViewRepresentable {
         ])
 
         private let evaluator: PinnedTrustEvaluator
+        /// Whether the software keyboard is up right now (docs/03 section 7).
+        private var keyboardVisible = false
+        private var keyboardObservers: [NSObjectProtocol] = []
 
         init(session: BrowserSession, onSwitchComputer: (() -> Void)?, onDeviceRevoked: (() -> Void)?) {
             evaluator = session.evaluator
@@ -117,9 +125,47 @@ struct GatewayWebView: UIViewRepresentable {
             super.init()
         }
 
+        /// Publishes `window.__DSH_MOBILE_KEYBOARD_STATE__`, which the mobile
+        /// layout reads to decide whether a soft keyboard exists. Without it the
+        /// page cannot tell an open keyboard from a closed one, and every
+        /// composer control has to guess.
+        func startKeyboardReporting(for webView: WKWebView) {
+            let center = NotificationCenter.default
+            let show = center.addObserver(
+                forName: UIResponder.keyboardWillShowNotification, object: nil, queue: .main
+            ) { [weak self, weak webView] _ in
+                self?.keyboardVisible = true
+                self?.publishKeyboardState(to: webView)
+            }
+            let hide = center.addObserver(
+                forName: UIResponder.keyboardWillHideNotification, object: nil, queue: .main
+            ) { [weak self, weak webView] _ in
+                self?.keyboardVisible = false
+                self?.publishKeyboardState(to: webView)
+            }
+            keyboardObservers = [show, hide]
+            publishKeyboardState(to: webView)
+        }
+
+        func stopKeyboardReporting() {
+            let center = NotificationCenter.default
+            keyboardObservers.forEach { center.removeObserver($0) }
+            keyboardObservers = []
+        }
+
+        private func publishKeyboardState(to webView: WKWebView?) {
+            guard let webView else { return }
+            let visible = keyboardVisible ? "true" : "false"
+            let script = "window.__DSH_MOBILE_KEYBOARD_STATE__ = { imeVisible: " + visible
+                + ", noHardwareKeyboard: true };"
+            webView.evaluateJavaScript(script)
+        }
+
         /// Records whether the gateway actually served the dedicated page: the
         /// page only takes the native branch when these markers are present.
         func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
+            // A new document starts without the global; republish it.
+            publishKeyboardState(to: webView)
             let script = """
             (function () {
               var meta = document.querySelector('meta[name="dsh-mobile-gateway"]');

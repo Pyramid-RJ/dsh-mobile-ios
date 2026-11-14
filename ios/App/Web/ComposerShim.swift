@@ -14,10 +14,13 @@ import Foundation
 ///    The mobile layout withholds the IME (`inputmode="none"`) when the Add
 ///    trigger is pressed and restores it on any other pointerdown, so opening
 ///    the attachment menu drops the keyboard and sliding over the menu brings it
-///    back. Each flip reflows the composer, which is slow. The fix is to ignore
-///    those `inputmode` writes while the user is working in the composer: the
-///    keyboard then simply stays as it is. Writes made outside that window (for
-///    example the drawer's own IME handling) still go through.
+///    back. Each flip reflows the composer, which is slow.
+///
+///    The shell publishes `window.__DSH_MOBILE_KEYBOARD_STATE__` from the real
+///    keyboard notifications, so the shim can keep each write from changing the
+///    state the user is in: the withhold is ignored while the keyboard is up,
+///    and the restore is ignored while it is down (except for a tap on the
+///    editor itself, which is the user asking for the keyboard).
 enum ComposerShim {
     static let script = """
     (() => {
@@ -32,32 +35,34 @@ enum ComposerShim {
         event.stopPropagation();
       }, true);
 
-      // --- 2. leave the keyboard alone while the composer is in use -----------
-      const CARD = '[data-composer-card]';
-      const TRIGGER = CARD + ' button[aria-haspopup="listbox"]';
+      // --- 2. keep the keyboard state stable while the composer is in use ----
+      // The page withholds the IME by writing inputmode="none" on the editor
+      // and restores it on any other pointerdown. Both writes change the
+      // keyboard: withholding hides it, restoring lets the next focus raise it
+      // (the Add button focuses the draft on purpose). The shell publishes
+      // __DSH_MOBILE_KEYBOARD_STATE__ so the two can be told apart:
+      //   * keyboard up   -> ignore the withhold, the keyboard stays up
+      //   * keyboard down -> keep the withhold, so the programmatic focus does
+      //                      not raise it; only a tap on the editor may clear it
       const EDITOR = '[data-composer-input]';
 
-      // A tap on any composer control opens a short window: the page's IME
-      // policy runs synchronously inside that same pointerdown.
-      let guardUntil = 0;
+      let pointerInEditor = false;
       document.addEventListener('pointerdown', (event) => {
         const target = event.target instanceof Element ? event.target : null;
-        if (target !== null && target.closest(CARD) !== null) {
-          guardUntil = performance.now() + 600;
-        }
+        pointerInEditor = target !== null && target.closest(EDITOR) !== null;
       }, true);
 
-      const menuIsOpen = () => {
-        const trigger = document.querySelector(TRIGGER);
-        return trigger !== null && trigger.getAttribute('aria-expanded') === 'true';
+      const keyboardVisible = () => {
+        const state = window.__DSH_MOBILE_KEYBOARD_STATE__;
+        return state !== void 0 && state !== null && state.imeVisible === true;
       };
-
-      const guarded = () => menuIsOpen() || performance.now() < guardUntil;
 
       const setAttribute = Element.prototype.setAttribute;
       Element.prototype.setAttribute = function (name, value) {
         if (String(name).toLowerCase() === 'inputmode'
-            && this instanceof Element && this.matches(EDITOR) && guarded()) {
+            && String(value).toLowerCase() === 'none'
+            && this instanceof Element && this.matches(EDITOR)
+            && keyboardVisible()) {
           return;
         }
         return setAttribute.call(this, name, value);
@@ -66,7 +71,8 @@ enum ComposerShim {
       const removeAttribute = Element.prototype.removeAttribute;
       Element.prototype.removeAttribute = function (name) {
         if (String(name).toLowerCase() === 'inputmode'
-            && this instanceof Element && this.matches(EDITOR) && guarded()) {
+            && this instanceof Element && this.matches(EDITOR)
+            && !keyboardVisible() && !pointerInEditor) {
           return;
         }
         return removeAttribute.call(this, name);
