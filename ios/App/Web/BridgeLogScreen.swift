@@ -82,6 +82,8 @@ struct BridgeLogScreen: View {
           return JSON.stringify({
             count: els.length,
             contenteditable: e ? e.getAttribute('contenteditable') : null,
+            inputmode: e ? e.getAttribute('inputmode') : null,
+            ariaHaspopup: e ? e.getAttribute('aria-haspopup') : null,
             isContentEditable: e ? e.isContentEditable : null,
             native: typeof window.__DSH_MOBILE_NATIVE__,
             keyboard: window.__DSH_MOBILE_KEYBOARD_STATE__ || null

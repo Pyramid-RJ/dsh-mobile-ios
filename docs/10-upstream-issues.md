@@ -170,3 +170,25 @@ iOS 端：装 0.9.0 壳 → 打开页面 → 「+」→ 计划 → 在文本框�
 > 0.9.14 先把按钮放在网页顶栏，用户要求改成贴着键盘的位置，0.9.15 移到键盘上方。系统输入法自带的「换行」属于系统编辑菜单，WebView 里加不进去。
 
 **诊断**：打开「桥日志」时会执行一次 `composer probe`，记录 `[data-composer-input]` 的数量、`contenteditable` 属性、`isContentEditable`、桥对象类型与键盘状态，用来定位页面的换行条件到底卡在哪一项。
+
+## 10 回车不换行的真正原因：`inputmode="none"` 卡住（2026-11-15）
+
+`composer probe` 显示编辑器是 `contenteditable="true"`、`isContentEditable=true`、桥对象正常，但回车仍不换行。回到 `dsh-mobile/lib/client.js` 的 `editable` 判定：
+
+```js
+editable: editor.isConnected
+  && editor.getAttribute("contenteditable") === "true"
+  && editor.getAttribute("aria-disabled") !== "true"
+  && editor.getAttribute("aria-haspopup") !== "menu"
+  && composerCard.getAttribute("aria-busy") !== "true"
+  && editor.getAttribute("inputmode") !== "none"        // ← 这里
+```
+
+页面点「+」时加的 `inputmode="none"`（withhold）**只有在后续 pointerdown 时才会被 restore 掉**。如果用户点完「+」直接打字、没有在别处点一下，`inputmode="none"` 就一直留着 → `editable === false` → 回车永远走桌面逻辑（发送 / 在菜单里激活默认项）。
+
+**修复（0.9.16）**：`ComposerShim` 接管 `window.__DSH_MOBILE_KEYBOARD_STATE__` 的赋值，一旦 `imeVisible` 变成 `true`，就清掉所有 `[data-composer-input]` 上的 `inputmode="none"`。这样：
+
+- 键盘收起时 withhold 仍然生效（点「+」不会唤起键盘）；
+- 键盘一弹起来，残留的 withhold 立刻被清掉，`editable` 恢复为 true，回车重新变成换行。
+
+`composer probe` 也补上了 `inputmode` 与 `aria-haspopup` 两个字段，下次可以直接看到是否卡住。

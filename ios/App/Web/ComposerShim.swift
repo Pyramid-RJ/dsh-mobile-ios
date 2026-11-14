@@ -42,6 +42,11 @@ enum ComposerShim {
       //   * keyboard up   -> drop the withhold, the keyboard stays up
       //   * keyboard down -> drop the restore, so a finger sliding over the menu
       //                      cannot raise it; a tap on the editor still may
+      //
+      // A leftover inputmode="none" is not cosmetic: the page's Enter-to-newline
+      // branch requires `inputmode !== "none"`, so a stuck withhold silently
+      // turns Enter back into the desktop behaviour. Clearing it whenever the
+      // keyboard becomes visible is what keeps both features working.
       const EDITOR = '[data-composer-input]';
 
       let pointerInEditor = false;
@@ -50,10 +55,27 @@ enum ComposerShim {
         pointerInEditor = target !== null && target.closest(EDITOR) !== null;
       }, true);
 
-      const keyboardVisible = () => {
-        const state = window.__DSH_MOBILE_KEYBOARD_STATE__;
-        return state !== void 0 && state !== null && state.imeVisible === true;
+      const clearWithhold = () => {
+        for (const editor of document.querySelectorAll(EDITOR)) {
+          if (editor.getAttribute('inputmode') === 'none') {
+            editor.removeAttribute('inputmode');
+          }
+        }
       };
+
+      let keyboardState = { imeVisible: false, noHardwareKeyboard: true };
+      Object.defineProperty(window, '__DSH_MOBILE_KEYBOARD_STATE__', {
+        configurable: true,
+        get: () => keyboardState,
+        set: (next) => {
+          keyboardState = next;
+          if (next !== null && next !== void 0 && next.imeVisible === true) {
+            clearWithhold();
+          }
+        }
+      });
+
+      const keyboardVisible = () => keyboardState !== null && keyboardState.imeVisible === true;
 
       const setAttribute = Element.prototype.setAttribute;
       Element.prototype.setAttribute = function (name, value) {
