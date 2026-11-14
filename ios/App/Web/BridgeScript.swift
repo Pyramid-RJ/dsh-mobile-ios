@@ -23,6 +23,18 @@ enum BridgeScript {
       const pending = new Map();
       window.__DSH_MOBILE_NATIVE_STATE__ = { pending };
 
+      // camera.capture / files.pick expect a real File (value instanceof File),
+      // so a reply carrying {__file: {...}} is materialised here instead of
+      // being handed to the page as plain JSON.
+      const decodeFile = (value) => {
+        if (!value || typeof value !== 'object' || !value.__file) { return value; }
+        const file = value.__file;
+        const binary = atob(file.base64);
+        const bytes = new Uint8Array(binary.length);
+        for (let index = 0; index < binary.length; index += 1) { bytes[index] = binary.charCodeAt(index); }
+        return new File([bytes], file.name, { type: file.mime });
+      };
+
       const deliver = (raw) => {
         let msg;
         try { msg = typeof raw === 'string' ? JSON.parse(raw) : raw; } catch (e) { return; }
@@ -32,7 +44,7 @@ enum BridgeScript {
         pending.delete(msg.requestId);
         clearTimeout(entry.timer);
         if (msg.ok) {
-          entry.resolve(msg.value);
+          entry.resolve(decodeFile(msg.value));
         } else {
           const failure = new Error(msg.message || 'bridge error');
           failure.code = msg.code;

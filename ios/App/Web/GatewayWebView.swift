@@ -7,11 +7,12 @@ import DSHTrust
 struct GatewayWebViewScreen: View {
     let session: BrowserSession
 
+    @Environment(\.dismiss) private var dismiss
     @ObservedObject private var bridgeLog = BridgeLog.shared
     @State private var showsLog = false
 
     var body: some View {
-        GatewayWebView(session: session)
+        GatewayWebView(session: session, onSwitchComputer: { dismiss() })
             .navigationTitle(session.origin.host)
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
@@ -41,9 +42,10 @@ struct GatewayWebViewScreen: View {
 /// injects the bridge adapter at document start.
 struct GatewayWebView: UIViewRepresentable {
     let session: BrowserSession
+    var onSwitchComputer: (() -> Void)?
 
     func makeCoordinator() -> Coordinator {
-        Coordinator(session: session)
+        Coordinator(session: session, onSwitchComputer: onSwitchComputer)
     }
 
     func makeUIView(context: Context) -> WKWebView {
@@ -80,18 +82,41 @@ struct GatewayWebView: UIViewRepresentable {
     final class Coordinator: NSObject, WKNavigationDelegate {
         let bridgeHost: BridgeHost
         /// Only what a handler can actually serve (docs/03 section 6.2).
-        let capabilities = BridgeCapabilities(implemented: [.authRenew])
+        let capabilities = BridgeCapabilities(implemented: [.authRenew, .switchComputer])
 
         private let evaluator: PinnedTrustEvaluator
 
-        init(session: BrowserSession) {
+        init(session: BrowserSession, onSwitchComputer: (() -> Void)?) {
             evaluator = session.evaluator
             bridgeHost = BridgeHost(
                 origin: session.origin,
                 evaluator: session.evaluator,
-                deviceToken: session.deviceToken
+                deviceToken: session.deviceToken,
+                onSwitchComputer: onSwitchComputer
             )
             super.init()
+        }
+
+        /// Records whether the gateway actually served the dedicated page: the
+        /// page only takes the native branch when these markers are present.
+        func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
+            let script = """
+            (function () {
+              var meta = document.querySelector('meta[name="dsh-mobile-gateway"]');
+              return [
+                'frontend=' + String(window.__DSH_MOBILE_FRONTEND__),
+                'gateway=' + (meta ? meta.getAttribute('content') : 'none'),
+                'bridge=' + (typeof window.__DSH_MOBILE_NATIVE__),
+                'path=' + location.pathname
+              ].join(' | ');
+            })();
+            """
+            webView.evaluateJavaScript(script) { result, _ in
+                guard let text = result as? String else { return }
+                Task { @MainActor in
+                    BridgeLog.shared.append(text)
+                }
+            }
         }
 
         func webView(

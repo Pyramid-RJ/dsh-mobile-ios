@@ -14,14 +14,21 @@ final class BridgeHost: NSObject, WKScriptMessageHandler {
     private let origin: GatewayOrigin
     private let evaluator: PinnedTrustEvaluator
     private let deviceToken: String?
+    private let onSwitchComputer: (() -> Void)?
     private let pending = BridgePendingTracker()
 
     weak var webView: WKWebView?
 
-    init(origin: GatewayOrigin, evaluator: PinnedTrustEvaluator, deviceToken: String?) {
+    init(
+        origin: GatewayOrigin,
+        evaluator: PinnedTrustEvaluator,
+        deviceToken: String?,
+        onSwitchComputer: (() -> Void)? = nil
+    ) {
         self.origin = origin
         self.evaluator = evaluator
         self.deviceToken = deviceToken
+        self.onSwitchComputer = onSwitchComputer
         super.init()
     }
 
@@ -85,6 +92,10 @@ final class BridgeHost: NSObject, WKScriptMessageHandler {
             } catch {
                 return BridgeReply.failure(requestId: request.requestId, code: .failed, message: error.localizedDescription)
             }
+        case BridgeAction.switchComputer.rawValue:
+            // The page asked for the computer list; pop back to the app's list.
+            onSwitchComputer?()
+            return BridgeReply.success(requestId: request.requestId, value: ["switched": true])
         default:
             return BridgeReply.failure(
                 requestId: request.requestId,
