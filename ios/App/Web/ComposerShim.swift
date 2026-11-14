@@ -35,14 +35,20 @@ enum ComposerShim {
         event.stopPropagation();
       }, true);
 
-      // --- 2. do not hide a keyboard that is already up ----------------------
+      // --- 2. keep the keyboard in the state the user is in ------------------
       // The page withholds the IME (inputmode="none") when the Add trigger is
-      // pressed, which is right while the keyboard is down: it lets the button
-      // focus the draft without raising the keyboard. It is wrong while the
-      // keyboard is already up, because withholding hides it and the composer
-      // reflows. Only that one write is dropped; every restore still runs, so
-      // inputmode can never get stuck and Enter keeps its normal behaviour.
+      // pressed and restores it on any other pointerdown. Each write changes the
+      // keyboard, so the shim keeps them from flipping the current state:
+      //   * keyboard up   -> drop the withhold, the keyboard stays up
+      //   * keyboard down -> drop the restore, so a finger sliding over the menu
+      //                      cannot raise it; a tap on the editor still may
       const EDITOR = '[data-composer-input]';
+
+      let pointerInEditor = false;
+      document.addEventListener('pointerdown', (event) => {
+        const target = event.target instanceof Element ? event.target : null;
+        pointerInEditor = target !== null && target.closest(EDITOR) !== null;
+      }, true);
 
       const keyboardVisible = () => {
         const state = window.__DSH_MOBILE_KEYBOARD_STATE__;
@@ -58,6 +64,16 @@ enum ComposerShim {
           return;
         }
         return setAttribute.call(this, name, value);
+      };
+
+      const removeAttribute = Element.prototype.removeAttribute;
+      Element.prototype.removeAttribute = function (name) {
+        if (String(name).toLowerCase() === 'inputmode'
+            && this instanceof Element && this.matches(EDITOR)
+            && !keyboardVisible() && !pointerInEditor) {
+          return;
+        }
+        return removeAttribute.call(this, name);
       };
     })();
     """

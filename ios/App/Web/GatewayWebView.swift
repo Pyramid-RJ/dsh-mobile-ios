@@ -170,6 +170,11 @@ struct GatewayWebView: UIViewRepresentable {
             let script = "window.__DSH_MOBILE_KEYBOARD_STATE__ = { imeVisible: " + visible
                 + ", noHardwareKeyboard: true };"
             webView.evaluateJavaScript(script)
+            // The page's Enter handling hangs off this value, so it has to be
+            // visible in the log when it misbehaves.
+            Task { @MainActor in
+                BridgeLog.shared.append("keyboard state", detail: "imeVisible=" + visible)
+            }
         }
 
         /// Records whether the gateway actually served the dedicated page: the
@@ -177,6 +182,14 @@ struct GatewayWebView: UIViewRepresentable {
         func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
             // A new document starts without the global; republish it.
             publishKeyboardState(to: webView)
+            // Record what the page actually sees, so a wrong Enter behaviour can
+            // be traced to this value instead of guessed at.
+            webView.evaluateJavaScript("JSON.stringify(window.__DSH_MOBILE_KEYBOARD_STATE__)") { result, _ in
+                guard let text = result as? String else { return }
+                Task { @MainActor in
+                    BridgeLog.shared.append("page sees keyboard", detail: text)
+                }
+            }
             let script = """
             (function () {
               var meta = document.querySelector('meta[name="dsh-mobile-gateway"]');
