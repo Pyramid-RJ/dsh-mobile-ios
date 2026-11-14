@@ -78,8 +78,19 @@ ios/
 | 改了代码但行为没变 | 装了旧包 / 没重装 | 设备诊断里的 `build` 字段 |
 | AltStore 源里只剩 0.1.0 / 0.2.0 | release 工作流的 "Commit the source back" 用了 `git checkout -f -B main origin/main`，把未推送的本地提交连同旧内容一起提交了（2026-11-14 的 `2eb401c` 就是这样把 source.json 退回 0.2.0，+3 −51） | 已改为 `git reset --soft` + `git commit --only altstore/source.json`；source 已从 `ios-v0.8.0` 的 release 资产恢复 |
 
-## 7 环境注意
+## 7 环境注意（2026-11-14 晚自检后更新）
 
-- 本机是 Windows，**没有 Swift/Xcode**：所有编译与测试都在 GitHub Actions 上完成，本地只做结构校验；
-- 推送曾因 git 的 schannel 凭据问题失败，当时改用 GitHub Git Data API 推送；现在 `gh` 可用时优先用普通 git + API 兜底；
+- 本机是 Windows，**没有 Swift/Xcode**：所有编译与测试都在 GitHub Actions 上完成，本地只做结构校验（`python` 3.12、`node` 24 可用）；
+- **直连 GitHub 不通，必须走代理** `http://127.0.0.1:7897`（WinINET 系统代理 Git 不读）。仓库已持久化 `git config http.proxy`；
+- **两个 git 并存，只有一个能联网**：
+  - `D:\Program Files\Git\cmd\git.exe`（2.56.1，OpenSSL）→ **可用**，推送/拉取都走它；
+  - DSH 会话里的 `git`（niugit 2.56，schannel）→ 仍报 `SEC_E_NO_CREDENTIALS`，**不要用它联网**；
+- **凭据**：系统 git 的 `credential.helper=manager`（GCM，在 `ucrt64/bin`）在你自己的终端可用；但本会话的 shell 里 `sh.exe`/`bash.exe` 报 `couldn't create signal pipe, Win32 error 5`，`!`/prompt 形式的 helper 起不来，所以推送用 extraheader 绕过：
+  ```bash
+  G="/d/Program Files/Git/cmd/git.exe"
+  AUTH=$(printf 'x-access-token:%s' "$(gh auth token)" | base64 -w0)
+  "$G" -c credential.helper= -c http.extraheader="Authorization: Basic $AUTH" push origin main
+  ```
+- **对象库已修复**：用系统 git `fetch` 补齐远端对象后 `git fsck` 无错误（只剩 dangling commit，是历次重写留下的，无害）；本地 `main` 已 `reset --hard origin/main`，与远端一致；
+- **换行符**：已加 `.gitattributes`（`*.sh/*.py/*.yml/*.json/*.md/*.swift` 一律 LF）。Windows 上手写/复制文件时注意别引入 CRLF，否则 CI 上会 `bad interpreter: /bin/bash^M`；
 - macOS 分钟在公开仓库免费，但排队时间不可控，发布偶发需要重跑。
