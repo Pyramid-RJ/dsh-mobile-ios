@@ -187,7 +187,9 @@ struct UrlPolicyContractTests: XCTestCase {
 - 已知偏差：SameSite=Strict 在注入 Cookie 时降级为 Lax（docs/03 §9）
 ```
 
-> 逐条状态与验证方法见 [12 待验证清单](12-pending-verification.md)；App 内「自检」与「验收清单」是这两份清单的可执行版本。
+> 逐条状态与验证方法见 [12 待验证清单](12-pending-verification.md)；App 内「自检」与「验收清单」是这两份清单的可执行版本，[13 验收记录表](13-acceptance-sheet.md) 是回填模板。
+
+**剩余 13 项的分级**（与上面 §4/§5 口径一致）：**P0 只有 3 项**——远程通道（P0-03）、续期取消（P0-18）、CA 过期提示（P0-13）；其余 10 项为 P1。也就是说：**P0 全绿即可发布，P1 允许个别未测**。
 
 ## 9 回归策略
 
