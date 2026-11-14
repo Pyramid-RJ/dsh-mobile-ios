@@ -163,6 +163,17 @@ git tag ios-v0.1.0
 git push origin ios-v0.1.0
 ```
 
+**当前仓库的实际配置（2026-11-15 核对）**：
+
+| 项 | 实际值 |
+| --- | --- |
+| 仓库变量 | **一个都没设**——`IOS_RUNNER` / `IOS_XCODE_VERSION` / `IOS_MARKETING_VERSION` 都走默认（`macos-15` / `16.4` / 由 tag 推导） |
+| Actions 权限 | 仓库默认（只读），Release job 用 workflow 内的 `permissions: contents: write` |
+| 标签 | `ios-v0.1.0` … `ios-v0.9.30` 连续，无跳号 |
+| AltStore 源 | 每次 Release 由 bot 提交回 `altstore/source.json`（只改这一个文件） |
+
+也就是说：**不配置任何变量也能正常出包**，变量只是覆盖默认值的手段。
+
 ## 9 常见失败与排查
 
 | 现象 | 原因 | 处理 |
