@@ -110,6 +110,12 @@ static internal(set) var deadline: TimeInterval = 60   // ← 测 C-10 时临时
 | C-9 超大图 | 未测 | 3024x4032 / 1.5 MB，离 8 MiB 上限还远 |
 | C-10 超时 | 未测 | 需临时把 `deadline` 改短（§4.1） |
 
+### 4.2.1 同一台设备上的 `files.pick`（2026-11-14，0.9.2）
+
+用户在**关闭相机权限**的状态下选了一个 PDF（`PDF文稿 2.pdf`，143,438 B），文件作为附件进入了对话——`files.pick` 的完整链路（`UIDocumentPicker` → `asCopy` 拷贝 → base64 → 页面 `File` → 附件 → 发送）**通过**。
+
+0.9.2 的 `files.pick` 还没有生命周期日志，所以这次只能从「文件到达」反推；0.9.3 起补上了 `picker presenting` / `picker picked <名字> <mime> <字节>` / `picker cancelled`，与相机同构。
+
 结论：**P1-03 通过**。0.9.0 时那些 1 s 内的 `cancelled` 在 0.9.2 的日志里不再出现——原因是当时既没有「呈现」记录，也分不清取消来源；现在每次都有 `presenting` / `shutter` / `cancelled … after N.Ns` 三段可查。
 
 ## 5 记录模板

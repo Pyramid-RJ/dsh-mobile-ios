@@ -87,6 +87,9 @@ final class FilePicker: NSObject, UIDocumentPickerDelegate {
 
         return try await withCheckedThrowingContinuation { continuation in
             self.continuation = continuation
+            // Same lifecycle trail as the camera: without it a failed pick only
+            // says "reply failed", with no sign of whether the picker appeared.
+            BridgeLog.shared.append("picker presenting", detail: "from " + String(describing: type(of: presenter)))
             presenter.present(controller, animated: true)
         }
     }
@@ -94,6 +97,7 @@ final class FilePicker: NSObject, UIDocumentPickerDelegate {
     func documentPicker(_ controller: UIDocumentPickerViewController, didPickDocumentsAt urls: [URL]) {
         defer { continuation = nil }
         guard let url = urls.first else {
+            BridgeLog.shared.append("picker cancelled", detail: "the picker returned no URL")
             continuation?.resume(throwing: PickFailure.cancelled)
             return
         }
@@ -105,6 +109,10 @@ final class FilePicker: NSObject, UIDocumentPickerDelegate {
             }
             let mime = UTType(filenameExtension: url.pathExtension)?.preferredMIMEType
                 ?? "application/octet-stream"
+            BridgeLog.shared.append(
+                "picker picked",
+                detail: url.lastPathComponent + " " + mime + " " + String(data.count) + "B"
+            )
             continuation?.resume(returning: PickedFile(name: url.lastPathComponent, mime: mime, data: data))
         } catch {
             continuation?.resume(throwing: PickFailure.unreadable)
@@ -112,6 +120,7 @@ final class FilePicker: NSObject, UIDocumentPickerDelegate {
     }
 
     func documentPickerWasCancelled(_ controller: UIDocumentPickerViewController) {
+        BridgeLog.shared.append("picker cancelled", detail: "user dismissed the picker")
         continuation?.resume(throwing: PickFailure.cancelled)
         continuation = nil
     }

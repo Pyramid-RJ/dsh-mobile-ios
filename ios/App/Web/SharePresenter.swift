@@ -17,6 +17,7 @@ enum SharePresenter {
             )
             popover.permittedArrowDirections = []
         }
+        BridgeLog.shared.append("share presenting", detail: "from " + String(describing: type(of: controller)))
         controller.present(activity, animated: true)
     }
 

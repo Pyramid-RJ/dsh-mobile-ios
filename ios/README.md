@@ -83,7 +83,8 @@ didFinish 页面加载完成
 | 页面桥（`__DSH_MOBILE_NATIVE__`、`auth.renew`、诚实能力表） | P3 | ✅ 真机通过：`frontend=dedicated`、页面主动探测能力表 |
 | `clipboard.*`、`mobile.display-scale.*`、`mobile.switch-computer` | P3 | ✅ 真机通过（缩放持久化、长按抽屉开关切换电脑） |
 | `camera.capture` | P3 | ✅ 2026-11-14 真机通过（0.9.2）：`presenting` → `shutter 3024x4032 jpeg 1575040B after 13.3s` → `reply ok`，照片进入对话 |
-| `files.pick`、`share` | P3 | 未验证 |
+| `files.pick` | P3 | ✅ 2026-11-14 真机通过（0.9.2）：选 PDF → 附件进入对话 |
+| `share` | P3 | 未验证 |
 | 返回键、缩放、键盘事件 | P3 | 未开始 |
 
 ## 当前已知缺口
