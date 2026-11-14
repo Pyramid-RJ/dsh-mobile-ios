@@ -170,12 +170,14 @@ struct UrlPolicyContractTests: XCTestCase {
 
 **禁止**把"未测"写成"通过"，或把"L1 自动化覆盖"写成"已验证"。
 
-### 8.1 实际记录（截至 2026-11-15，0.9.28）
+### 8.1 实际记录（截至 2026-11-15，0.9.32）
 
 ```markdown
-## 2026-11-15  iOS 0.9.28 (build 68)
+## 2026-11-15  iOS 0.9.32 (build 81)
 
-- 构建：GitHub Actions `iOS CI`（macos-15, Xcode 16.4）+ `iOS Release`（ios-v0.9.28）
+- 构建：GitHub Actions `iOS CI`（macos-15, Xcode 16.4）+ `iOS Release`（ios-v0.9.32）
+- 产物校验：ipa 416,359 B，sha256 `de82a4ba…37537` 与 `SHA256SUMS`/`release.json` 一致；
+  `Info.plist` 版本 0.9.32 / build 81 / minOS 17.0；二进制内含 0.9.31 新增的「页面没有加载出来」「证书校验失败」「重试」等文案
 - 上游：dsh-mobile 0.8.8 / DSH（本机安装版本）
 - 设备：iPhone19,7 / iOS 27.0.1（主力机）
 - 通过：P0-01（扫码配对）、P0-09（撤销检测，含重新配对后标记清除）、
