@@ -25,10 +25,10 @@ iOS 壳（本仓库）对页面只做三件事：注入 `window.__DSH_MOBILE_NAT
 
 设计是**两步删除**：光标贴着词条时，第一次退格只「选中」词条（`data-selected`），第二次才真正删掉。`chip-node.tsx` 里 `isKeyboardSelectable()` 返回 `false`，所以删除完全依赖 `command-chip-selection.ts` 的两条路径：
 
-| 路径 | 触发 | 桌面 | iOS |
-| --- | --- | --- | --- |
-| `DELETE_CHARACTER_COMMAND` | Lexical 键位表在 **keydown 内同步**派发 | ✅ 同步，`$decide` 立刻看到选中状态 | ❌ 不派发 |
-| `BEFORE_INPUT_COMMAND` | 浏览器 `beforeinput`（`deleteContentBackward`） | 备用 | ✅ 走这条 |
+| 路径 | 触发 | 实际情况 |
+| --- | --- | --- |
+| `DELETE_CHARACTER_COMMAND` | Lexical 键位表在 keydown 内同步派发 | **不会发生**：编辑器用 `registerPlainText`，键位表（`keymap.ts`）只处理方向键/Tab/Esc/空格/回车，没有 Backspace |
+| `BEFORE_INPUT_COMMAND` | 浏览器 `beforeinput`（`deleteContentBackward`） | 所有引擎都走这条 |
 
 问题出在 `KEY_DOWN_COMMAND` 里这段「按键没产生删除就清掉选中」的兜底：
 
@@ -60,7 +60,7 @@ iOS 上退格的时序是 **keydown → microtask → beforeinput**：
 3. **目标**：发 `/goal clear`；
 4. 装 0.9.1 及以后的壳：壳侧已加临时缓解（§4.1），退格两次即可删除。
 
-### 4.1 壳侧临时缓解（已落地，0.9.1）
+### 4.1 壳侧临时缓解（0.9.1 真机已验证）
 
 `ios/App/Web/ComposerChipShim.swift` 在文档开始时注入一个**捕获阶段**的 keydown 监听：当编辑器报告有词条被选中（根元素带 `data-composer-chip-selected`）、且按键是 `Backspace`/`Delete`、且事件发生在该编辑器内时，`stopPropagation()` 掉这次 keydown。
 
@@ -71,6 +71,8 @@ iOS 上退格的时序是 **keydown → microtask → beforeinput**：
 - 只在「有词条被选中 + 退格/删除键 + 编辑器内」时介入，其它按键与其它区域完全不受影响；
 - 属性名一旦被上游改掉，shim 自动失效（不报错、不误伤）；
 - 上游修好之后**应当删除**这个脚本，`GatewayWebView.swift` 里的注入点和这里一起删。
+
+**真机结果（2026-11-14，iPhone19,7 / iOS 27.0.1，0.9.1 build 50）**：`/plan`、`/goal` 词条都能正常删除了。这是本条问题唯一的验收证据——0.9.0（build 49）上同样的操作删不掉。
 
 ## 5 建议的上游补丁（一行）
 
@@ -103,7 +105,7 @@ RESULT: matches the diagnosis
 
 即：Chromium 两条路径都能删（无回归），WebKit 旧代码**永远删不掉**、新代码第二次退格即可删除。
 
-**未验证**：本机没有可运行的 DSH 开发环境，改动只做了代码层面推演与状态机模拟；需要上游在真机 iOS 上复测「退格两次删除」与「方向键跨过词条」两条路径。
+**状态**：壳侧缓解已在真机验证（§4.1）。上游补丁本身仍未提交给上游，也**没有**在真机上单独验证过——它和壳侧 shim 修的是同一处，两者共存不会冲突（见 `docs/patches/` 的模拟输出）。
 
 ## 6 复现与取证方法
 
