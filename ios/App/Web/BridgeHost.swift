@@ -137,6 +137,14 @@ final class BridgeHost: NSObject, WKScriptMessageHandler {
             await MainActor.run { UIPasteboard.general.string = text }
             return BridgeReply.success(requestId: request.requestId, value: ["written": true])
 
+        case HostAction.diagnostics:
+            // Not a page contract action: the in-app diagnostics screen asks for
+            // the facts only the device knows, so a failed capture can be
+            // explained without a Mac and Console.app.
+            let facts = DeviceDiagnostics.transcript()
+            appendLog("diagnostics", detail: facts)
+            return BridgeReply.success(requestId: request.requestId, value: ["facts": facts])
+
         case BridgeAction.displayScaleGet.rawValue:
             let percent = DisplayScaleStore.shared.percent
             return BridgeReply.success(requestId: request.requestId, value: DisplayScalePolicy.reply(percent: percent))
@@ -256,14 +264,30 @@ final class BridgeHost: NSObject, WKScriptMessageHandler {
         return try await client.renew(deviceToken: deviceToken)
     }
 
-    private func appendLog(_ line: String) {
+    /// Lets the in-app diagnostics screen read device facts through the same
+    /// path a page request takes, so the log shows it like anything else.
+    func diagnose() async -> BridgeReply {
+        let request = BridgeRequest(requestId: "host-diagnostics", action: HostAction.diagnostics)
+        appendLog("invoke " + request.action)
+        let reply = await handle(request)
+        self.reply(reply)
+        return reply
+    }
+
+    private func appendLog(_ line: String, detail: String? = nil) {
         Task { @MainActor in
-            BridgeLog.shared.append(line)
+            BridgeLog.shared.append(line, detail: detail)
         }
     }
 
     private func reply(_ reply: BridgeReply) {
-        appendLog(reply.ok ? "reply ok" : "reply failed")
+        // A failure without its code and message is undiagnosable on the device.
+        if reply.ok {
+            appendLog("reply ok")
+        } else {
+            let code = reply.code?.rawValue ?? "failed"
+            appendLog("reply failed " + code, detail: reply.message)
+        }
         guard let webView else { return }
         let literal = BridgeHost.javaScriptLiteral(reply.json())
         webView.evaluateJavaScript("window.__DSH_MOBILE_NATIVE_DELIVER__(" + literal + ");") { _, error in

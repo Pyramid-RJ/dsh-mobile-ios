@@ -5,8 +5,8 @@ import XCTest
 /// every failure maps to a code the page understands, and the reply that
 /// carries it keeps the documented shape (docs/03 section 5.2).
 ///
-/// The picker itself (permission prompt, capture, 300 s deadline) is L3 only:
-/// it needs a real camera and a person (docs/06 section 10).
+/// The picker itself (permission prompt, capture, deadline) is L3 only: it
+/// needs a real camera and a person (docs/06 section 10).
 final class BridgeFailureCodeMappingTests: XCTestCase {
     private struct Case {
         let code: BridgeFailureCode
@@ -51,5 +51,12 @@ final class BridgeFailureCodeMappingTests: XCTestCase {
         XCTAssertTrue(tracker.begin("camera-1"))
         tracker.finish("camera-1")
         XCTAssertTrue(tracker.begin("camera-2"))
+    }
+
+    /// The diagnostics request is host-only: it must never become a capability
+    /// the page can see (docs/03 section 6.2).
+    func testDiagnosticsIsNotAnAdvertisedCapability() {
+        let all = BridgeCapabilities(implemented: Set(BridgeAction.allCases))
+        XCTAssertFalse(all.values.contains("host.diagnostics"))
     }
 }

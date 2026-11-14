@@ -17,6 +17,7 @@
 | 怎么编译、怎么签名、7 天怎么续 | [05 构建签名与侧载](05-build-and-signing.md) |
 | CI 环境怎么配、怎么触发、产物怎么拿 | [08 GitHub Actions 环境](08-ci-environment.md) |
 | 怎么验收、要跑哪些用例 | [06 测试与验收](06-testing.md) |
+| 拍照（`camera.capture`）怎么测、权限怎么重置 | [09 相机测试方案](09-camera-test-plan.md) |
 | 什么时候做什么、会卡在哪 | [07 路线图与风险](07-roadmap-and-risks.md) |
 
 ## 一句话结论

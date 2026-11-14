@@ -27,8 +27,8 @@ iOS 壳已经能配对、能打开 DSH 页面、页面走原生分支，桥的�
 
 ## 3 未验证（不要当成通过）
 
-1. **附件链路**：`files.pick` / `camera.capture` / `share` 在 0.8.0 里实现，**一次都没在真机跑过**；
-2. **权限被拒的路径**：相机权限拒绝时会直接失败，没有 `permission_denied` 分支（见 §5 第 1 条）；
+1. **附件链路**：`files.pick` / `camera.capture` / `share` 已实现；2026-11-14 真机日志显示 `camera.capture` 5 次里 4 次在 1 s 内 `reply failed`，**失败原因尚未定位**（见 §5 第 1 条）；
+2. **权限被拒的路径**：`permission_denied` 分支已补（`CameraCapture` 预检 + `PickFailure.bridgeCode`），**真机未验证**；
 3. **iOS 17.0**（声明的最低版本）与 **iPad**：全部功能都没在这两个目标上测过；
 4. **远程通道**：隧道那条路（Cloudflare origin 是 http）只用探针试过，配对未验证；
 5. **7 天重签**：未实测（需要等签名过期）。
@@ -58,8 +58,8 @@ ios/
 
 ## 5 下一步建议顺序
 
-1. **补权限预检**（小、确定）：`AVCaptureDevice.requestAccess` / 相册权限，拒绝时回 `permission_denied`，让页面显示明确文案；
-2. **真机验证附件链路**：选文件 → 图片进输入框 → 发送；拍照同理；失败看桥日志 `invoke` / `reply failed`；
+1. **先把 `camera.capture` 的 1 s 失败定位掉**（当前第一优先）：装新包 → 点相机 → 打开「桥日志」，看顶部「设备诊断」里的 `cameraAvailable` / `keyWindow` / `presented`，以及 `reply failed` 下面那行原因。用例与权限重置方法见 [09 相机测试方案](09-camera-test-plan.md)；
+2. **真机验证附件链路**：选文件 → 图片进输入框 → 发送；拍照同理（C-1…C-7）；
 3. **iOS 17 与 iPad 复核**：至少跑一遍配对 + 打开页面；
 4. **远程通道**：用隧道地址走一次完整配对（注意 origin 是 http，不需要私有 CA）；
 5. P2 剩余：设备列表的重命名/排序/删除 UI（数据层 `DeviceRecordBook` 已就绪）。
@@ -74,6 +74,8 @@ ios/
 | 编译报 `cannot find type X` | 新文件漏了 `import DSHBridge` 之类 | 每个用到包类型的文件都要显式 import |
 | 桥日志只有 `bridge.ready` | `capabilities()` 是按需调用，不是启动即调 | 正常；触发「切换电脑」长按才会看到探测 |
 | 抽屉里找不到「切换电脑」 | 它是长按手势，不是菜单项 | 长按抽屉开关 500 ms |
+| `camera.capture` 1 s 内 `reply failed` | 旧代码在弹相机前就拒绝（`isAvailable == false` 或 `no presenter`），与权限无关 | 新包：桥日志顶部「设备诊断」+ `reply failed` 下方原因行 |
+| 改了代码但行为没变 | 装了旧包 / 没重装 | 设备诊断里的 `build` 字段 |
 
 ## 7 环境注意
 

@@ -8,7 +8,6 @@ struct GatewayWebViewScreen: View {
     let session: BrowserSession
 
     @Environment(\.dismiss) private var dismiss
-    @ObservedObject private var bridgeLog = BridgeLog.shared
     @State private var showsLog = false
 
     var body: some View {
@@ -21,19 +20,7 @@ struct GatewayWebViewScreen: View {
                 }
             }
             .sheet(isPresented: $showsLog) {
-                NavigationStack {
-                    List(bridgeLog.entries, id: \.self) { line in
-                        Text(line)
-                            .font(.caption2.monospaced())
-                    }
-                    .navigationTitle("桥日志")
-                    .navigationBarTitleDisplayMode(.inline)
-                    .toolbar {
-                        ToolbarItem(placement: .topBarTrailing) {
-                            Button("关闭") { showsLog = false }
-                        }
-                    }
-                }
+                BridgeLogScreen()
             }
     }
 }
@@ -65,6 +52,7 @@ struct GatewayWebView: UIViewRepresentable {
         let webView = WKWebView(frame: .zero, configuration: configuration)
         webView.navigationDelegate = context.coordinator
         host.webView = webView
+        BridgeHostRegistry.shared.current = host
 
         guard let url = session.origin.url(path: "/") else { return webView }
         let cookies = session.cookies

@@ -13,13 +13,30 @@ import UIKit
 final class CameraCapture: NSObject, UIImagePickerControllerDelegate, UINavigationControllerDelegate {
     /// A capture the user never finished must not hold the bridge slot forever
     /// (docs/03 section 5.4: the page waits 305 s, native must give up first).
-    static let deadline: TimeInterval = 300
+    ///
+    /// While the picker is up the user is *in* the camera, so a minute of no
+    /// activity is a stuck request, not a slow one; 300 s only made the failure
+    /// untestable. The page's own 305 s timeout still sits above this.
+    static internal(set) var deadline: TimeInterval = 60
 
     private var continuation: CheckedContinuation<PickedFile, Error>?
     private var timeoutTask: Task<Void, Never>?
 
     static var isAvailable: Bool {
         UIImagePickerController.isSourceTypeAvailable(.camera)
+    }
+
+    /// Test hook for C-10: run the timeout in seconds instead of a minute.
+    ///
+    /// It changes only a timer, not what the camera does, so a green short run
+    /// says "the deadline fires, the picker closes, the page gets `timeout`" —
+    /// not "300 s is the right number". Reset with `resetDeadlineForRelease()`.
+    static func useShortDeadline(_ seconds: TimeInterval) {
+        deadline = seconds
+    }
+
+    static func resetDeadlineForRelease() {
+        deadline = 60
     }
 
     func capture(from presenter: UIViewController) async throws -> PickedFile {
