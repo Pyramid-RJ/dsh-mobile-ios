@@ -1,16 +1,16 @@
-# 09 交接说明（2026-11-14）
+# 09 交接说明（2026-11-15）
 
 给下一个接手的人/会话：**先读这一页**，再决定从哪里继续。下面的"已验证"只有真机证据，"未验证"一律不算通过。
 
 ## 1 当前状态一句话
 
-iOS 壳已经能配对、能打开 DSH 页面、页面走原生分支，桥的九项能力全部实现；**附件链路（选文件/拍照/分享）已实现但未在真机验证**。
+iOS 壳已可日常使用：配对（含扫码）、打开页面、相机、选文件、设备管理、重装恢复、撤销检测都在真机验证过。**剩下的是远程通道（缺隧道地址）与 iOS 17 / iPad 复核**；逐条清单见 [12](12-pending-verification.md)，App 内「自检」与「验收清单」是它的可执行版本。
 
 | 项 | 状态 |
 | --- | --- |
 | 仓库 | https://github.com/Pyramid-RJ/dsh-mobile-ios（公开） |
-| 最新 Release | `ios-v0.8.0`，ipa 238,735 B |
-| AltStore 源 | `https://github.com/Pyramid-RJ/dsh-mobile-ios/releases/latest/download/source.json`（0.1.0–0.8.0 全部保留） |
+| 最新 Release | `ios-v0.9.28` |
+| AltStore 源 | `https://github.com/Pyramid-RJ/dsh-mobile-ios/releases/latest/download/source.json`（0.1.0–0.9.28 全部保留） |
 | CI | `iOS CI`（PR/推送）+ `iOS Release`（`ios-v*` 标签），均验证通过 |
 | 分支 | `main`，无未推送改动 |
 
@@ -30,11 +30,12 @@ iOS 壳已经能配对、能打开 DSH 页面、页面走原生分支，桥的�
 
 ## 3 未验证（不要当成通过）
 
-1. **附件链路**：`camera.capture` 与 `files.pick` 已于 0.9.2 真机通过（见 §2）；`share` 已实现但**页面没有入口**（[10 §7](10-upstream-issues.md)）；
-2. **权限被拒的路径**：`permission_denied` 分支已补（`CameraCapture` 预检 + `PickFailure.bridgeCode`），**真机未验证**；
-3. **iOS 17.0**（声明的最低版本）与 **iPad**：全部功能都没在这两个目标上测过；
-4. **远程通道**：隧道那条路（Cloudflare origin 是 http）只用探针试过，配对未验证；
-5. **7 天重签**：未实测（需要等签名过期）。
+1. **远程通道**：代码已就绪（0.9.25 支持无私有 CA 时退回系统信任，0.9.26 加了地址连通性探测），但**没有隧道地址可验证**；
+2. **局域网发现（S-4）**：`NWBrowser` 已实现（0.9.21），待真机确认能列出电脑；
+3. **返回键契约**：0.9.24 起「‹」先问页面，待真机确认抽屉/面板会被先关掉；
+4. **iOS 17.0**（声明的最低版本）与 **iPad**：全部功能都没在这两个目标上测过；
+5. **7 天重签**：未实测（需要等签名过期）；
+6. **`share`**：页面没有调用点（[10 §7](10-upstream-issues.md)），无法验证，不算未完成。
 
 ## 4 代码地图
 

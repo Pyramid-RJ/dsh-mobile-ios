@@ -1,8 +1,8 @@
 # 08 GitHub Actions macOS Runner 环境
 
-> **状态：配置已落地，尚未在真实仓库跑过。** 本次在 Windows 上完成，只做了 YAML 解析与 Shell 语法校验；首次推送后请按 §5 手动触发一次确认。
+> **状态：已在真实仓库跑通。** `iOS CI` 与 `iOS Release` 均已多次成功（最近 0.9.28），产物见 Releases；本文保留配置说明与排错记录。
 >
-> 仓库已有 P0 工程骨架（`ios/project.yml` + `App/` + `Package.swift`），工作流检测到 `ios/*.xcodeproj`、`ios/*.xcworkspace` 或 `ios/project.yml` 后就会真正构建。但这套构建**尚未在 macOS 上跑过**，首次触发请按 §5 手动确认。
+> 仓库用 XcodeGen（`ios/project.yml` + `App/` + `Package.swift`），工作流检测到 `ios/project.yml` 后就会构建；这条链路已经稳定运行。
 
 ## 1 落地清单
 

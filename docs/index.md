@@ -2,7 +2,7 @@
 
 面向 `https://github.com/saya-ch/dsh-mobile` 的 **原生 iOS 客户端** 计划：在已有 Android APK 的基础上，产出一个可侧载的 `.ipa`。
 
-> 状态：**文档 + P0 工程骨架**。`ios/` 里已有 XcodeGen 工程、SwiftUI 空壳、纯逻辑包 `DSHPairing` 与 GitHub Actions 构建链；**尚未在 macOS / 真机实测**，功能实现从 P1 开始。
+> 状态：**P0–P6 已实现，P7 真机验收进行中**。当前版本 0.9.28，已在 iPhone（iOS 27.0.1）上验证：配对、扫码、页面桥、相机、选文件、设备列表、重装恢复、撤销检测；待验证项见 [12 待验证清单](12-pending-verification.md)。
 > 上游项目 **不提供也未计划** 原生 iOS App；本项目是独立的社区衍生方向，必须与上游发布分离，不能声称是上游官方 iOS 版本。
 
 ## 先读这一页

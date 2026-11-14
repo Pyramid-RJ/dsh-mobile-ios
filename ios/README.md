@@ -87,12 +87,13 @@ didFinish 页面加载完成
 | `clipboard.*`、`mobile.display-scale.*`、`mobile.switch-computer` | P3 | ✅ 真机通过（缩放持久化、长按抽屉开关切换电脑） |
 | `camera.capture` | P3 | ✅ 2026-11-14 真机通过（0.9.2）：`presenting` → `shutter 3024x4032 jpeg 1575040B after 13.3s` → `reply ok`，照片进入对话；权限被拒路径同样通过（0.9.3，`permission_denied`，不重复弹询问） |
 | `files.pick` | P3 | ✅ 2026-11-14 真机通过（0.9.2）：选 PDF → 附件进入对话 |
-| `share` | P3 | 未验证 |
-| 返回键、缩放、键盘事件 | P3 | 未开始 |
+| `share` | P3 | 页面无调用点，无法验证（[docs/10 §7](../docs/10-upstream-issues.md)） |
+| 返回键契约（`dsh-mobile:native-back`） | P3 | 代码就绪（0.9.24），待真机验证 |
+| 键盘事件（`keyboard.state`） | P3 | 已撤回，交还页面逻辑（[docs/10 §12](../docs/10-upstream-issues.md)） |
 
 ## 当前已知缺口
 
-- **没有在任何真机或模拟器上跑过**。Swift 代码已在 GitHub Actions 的 macOS runner 上编译并通过测试（见 [docs/08](../docs/08-ci-environment.md) §11），但这不等于真机行为已验证。
-- S-1 已通过：架构确定为「原生壳 + 固定私有 CA」；iOS 17.0（最低版本）与 iPad 尚未复核。
+- 主力机（iPhone19,7 / iOS 27.0.1）已跑通主链路；**iOS 17.0（声明的最低版本）与 iPad 仍未复核**。
+- 远程通道（隧道）代码就绪但**没有隧道地址可验证**；局域网发现（S-4）同样待真机确认。
 - 没有签名配置：CI 产物是未签名包，真机安装要用你自己的 Apple ID 重签。
 - 应用图标是程序生成的占位图，文案为中文占位，未做本地化。
