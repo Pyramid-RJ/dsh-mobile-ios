@@ -15,6 +15,7 @@ struct RootView: View {
     @StateObject private var model = AppModel()
     @StateObject private var discovery = BonjourDiscovery()
     @State private var showsScanner = false
+    @Environment(\.scenePhase) private var scenePhase
 
     private var appVersion: String {
         let info = Bundle.main.infoDictionary
@@ -219,6 +220,18 @@ struct RootView: View {
             .task { await model.restore() }
             .task { discovery.start() }
             .onDisappear { discovery.stop() }
+            // A Bonjour browser left running in the background keeps the radio
+            // awake for a list nobody is looking at.
+            .onChange(of: scenePhase) { _, phase in
+                switch phase {
+                case .active:
+                    discovery.start()
+                case .inactive, .background:
+                    discovery.stop()
+                @unknown default:
+                    break
+                }
+            }
             .sheet(isPresented: $showsScanner) {
                 NavigationStack {
                     QRScannerView { code in

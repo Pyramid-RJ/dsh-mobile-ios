@@ -156,6 +156,19 @@ struct GatewayWebView: UIViewRepresentable {
 
     func updateUIView(_ webView: WKWebView, context: Context) {}
 
+    /// Leaving the page should stop whatever it was doing: a dismissed web view
+    /// keeps timers and media running otherwise.
+    static func dismantleUIView(_ uiView: WKWebView, coordinator: Coordinator) {
+        uiView.stopLoading()
+        uiView.configuration.userContentController.removeScriptMessageHandler(forName: BridgeScript.handlerName)
+        let host = coordinator.bridgeHost
+        Task { @MainActor in
+            if BridgeHostRegistry.shared.current === host {
+                BridgeHostRegistry.shared.current = nil
+            }
+        }
+    }
+
     final class Coordinator: NSObject, WKNavigationDelegate {
         let bridgeHost: BridgeHost
         /// Only what a handler can actually serve (docs/03 section 6.2).
