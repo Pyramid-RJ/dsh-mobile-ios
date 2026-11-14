@@ -183,7 +183,7 @@ final class BridgeHost: NSObject, WKScriptMessageHandler {
         } catch let failure as PickFailure {
             return BridgeReply.failure(
                 requestId: request.requestId,
-                code: failure == .cancelled ? .cancelled : (isTooLarge(failure) ? .payloadTooLarge : .failed),
+                code: failure.bridgeCode,
                 message: failure.description
             )
         } catch {
@@ -192,13 +192,6 @@ final class BridgeHost: NSObject, WKScriptMessageHandler {
     }
 
     private func capturePhoto(_ request: BridgeRequest) async -> BridgeReply {
-        guard CameraCapture.isAvailable else {
-            return BridgeReply.failure(
-                requestId: request.requestId,
-                code: .unavailable,
-                message: "no camera on this device"
-            )
-        }
         guard let presenter = await presenter() else {
             return BridgeReply.failure(requestId: request.requestId, code: .unavailable, message: "no presenter")
         }
@@ -206,19 +199,18 @@ final class BridgeHost: NSObject, WKScriptMessageHandler {
             let file = try await CameraCapture().capture(from: presenter)
             return BridgeReply.success(requestId: request.requestId, value: file.bridgeValue)
         } catch let failure as PickFailure {
+            // The camera status is the one fact only the device can report, so it
+            // goes into the log: a failed capture should be explainable later.
+            appendLog("camera status=" + CameraCapture.statusName(CameraCapture.cameraStatus())
+                + " result=" + failure.bridgeCode.rawValue)
             return BridgeReply.failure(
                 requestId: request.requestId,
-                code: failure == .cancelled ? .cancelled : (isTooLarge(failure) ? .payloadTooLarge : .failed),
+                code: failure.bridgeCode,
                 message: failure.description
             )
         } catch {
             return BridgeReply.failure(requestId: request.requestId, code: .failed, message: error.localizedDescription)
         }
-    }
-
-    private func isTooLarge(_ failure: PickFailure) -> Bool {
-        if case .tooLarge = failure { return true }
-        return false
     }
 
     /// Rewrites the viewport meta tag the way the page expects (docs/03 section 6.1).

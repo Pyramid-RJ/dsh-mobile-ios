@@ -1,6 +1,7 @@
 import Foundation
 import UIKit
 import UniformTypeIdentifiers
+import DSHBridge
 
 /// Result of a document/camera pick, encoded for the bridge's File reply.
 struct PickedFile {
@@ -24,6 +25,12 @@ enum PickFailure: Error, Equatable, CustomStringConvertible, LocalizedError {
     case cancelled
     case tooLarge(Int)
     case unreadable
+    /// The device cannot serve the request at all (no camera, no presenter).
+    case unavailable
+    /// The user refused the camera permission.
+    case permissionDenied
+    /// The user never finished picking; native gave up before the page did.
+    case timedOut
 
     var description: String {
         switch self {
@@ -33,10 +40,35 @@ enum PickFailure: Error, Equatable, CustomStringConvertible, LocalizedError {
             return "file is " + String(bytes) + " bytes; the limit is " + String(FilePicker.maxBytes)
         case .unreadable:
             return "the picked file could not be read"
+        case .unavailable:
+            return "not available on this device"
+        case .permissionDenied:
+            return "camera access is off; allow it in Settings > DSH > Camera"
+        case .timedOut:
+            return "no photo was taken before the request timed out"
         }
     }
 
     var errorDescription: String? { description }
+
+    /// The page's error code for this failure (docs/03 section 5.2). Only these
+    /// codes exist, so the mapping has to be total.
+    var bridgeCode: BridgeFailureCode {
+        switch self {
+        case .cancelled:
+            return .cancelled
+        case .tooLarge:
+            return .payloadTooLarge
+        case .unavailable:
+            return .unavailable
+        case .permissionDenied:
+            return .permissionDenied
+        case .timedOut:
+            return .timeout
+        case .unreadable:
+            return .failed
+        }
+    }
 }
 
 /// Picks one file and turns it into a bridge payload.
