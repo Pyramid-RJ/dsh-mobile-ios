@@ -24,10 +24,12 @@ iOS 壳已经能配对、能打开 DSH 页面、页面走原生分支，桥的�
 | 页面走原生分支 | 桥日志 `frontend=dedicated \| gateway=authenticated \| bridge=object` |
 | 页面缩放 | `invoke mobile.display-scale.get` → `reply ok`；重开值不变 |
 | 切换电脑 | **长按抽屉开关 500 ms** → 退回设备列表（不是菜单项，见 docs/03 §6.0.1） |
+| `camera.capture` | 2026-11-14 / 0.9.2：`camera presenting` → `camera shutter 3024x4032 jpeg 1575040B after 13.3s` → `reply ok`，照片作为附件进入对话；取消路径 `user tapped cancel after 2.6s` → `reply failed cancelled` |
+| 文本框模式词条删除 | 2026-11-14 / 0.9.1：`/plan`、`/goal` 词条退格可正常删除（壳侧 shim，见 [10](10-upstream-issues.md)） |
 
 ## 3 未验证（不要当成通过）
 
-1. **附件链路**：`files.pick` / `camera.capture` / `share` 已实现；2026-11-14 真机日志显示 `camera.capture` 5 次里 4 次在 1 s 内 `reply failed`，**失败原因尚未定位**（见 §5 第 1 条）；
+1. **附件链路**：`camera.capture` 已于 0.9.2 真机通过（见 §2）；`files.pick` 与 `share` 仍未在真机验证；
 2. **权限被拒的路径**：`permission_denied` 分支已补（`CameraCapture` 预检 + `PickFailure.bridgeCode`），**真机未验证**；
 3. **iOS 17.0**（声明的最低版本）与 **iPad**：全部功能都没在这两个目标上测过；
 4. **远程通道**：隧道那条路（Cloudflare origin 是 http）只用探针试过，配对未验证；
@@ -58,8 +60,8 @@ ios/
 
 ## 5 下一步建议顺序
 
-1. **先把 `camera.capture` 的 1 s 失败定位掉**（当前第一优先）：装新包 → 点相机 → 打开「桥日志」，看顶部「设备诊断」里的 `cameraAvailable` / `keyWindow` / `presented`，以及 `reply failed` 下面那行原因。用例与权限重置方法见 [09 相机测试方案](09-camera-test-plan.md)；
-2. **真机验证附件链路**：选文件 → 图片进输入框 → 发送；拍照同理（C-1…C-7）；
+1. **`files.pick` 与 `share` 的真机验证**（相机已在 0.9.2 通过）：选文件 → 进输入框 → 发送；分享面板 → 取消/完成。用例见 [09 相机测试方案](09-camera-test-plan.md) 的同构写法；
+2. **相机剩余用例**：C-3/C-4（拒绝权限，需卸载重装）、C-9（超大图）、C-10（超时，可临时把 `CameraCapture.deadline` 改成 10 s）——见 [09](09-camera-test-plan.md)；
 3. **iOS 17 与 iPad 复核**：至少跑一遍配对 + 打开页面；
 4. **远程通道**：用隧道地址走一次完整配对（注意 origin 是 http，不需要私有 CA）；
 5. P2 剩余：设备列表的重命名/排序/删除 UI（数据层 `DeviceRecordBook` 已就绪）。

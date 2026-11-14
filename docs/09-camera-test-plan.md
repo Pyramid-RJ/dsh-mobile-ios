@@ -96,6 +96,22 @@ static internal(set) var deadline: TimeInterval = 60   // ← 测 C-10 时临时
 
 不要为了测 C-10 去改页面侧 305 s——那是上游契约，不归我们改。
 
+## 4.2 真机记录：2026-11-14 / 0.9.2 (build 51)
+
+设备 iPhone19,7 / iOS 27.0.1，相机权限 `authorized`，从 `UIHostingController<…RootView…>` 呈现。
+
+| 用例 | 结果 | 日志证据 |
+| --- | --- | --- |
+| C-1 可用性 | ✅ | `camera presenting from UIHostingController<…>` |
+| C-2 拍照成功 | ✅ | `camera shutter 3024x4032 jpeg 1575040B after 13.3s` → `reply ok`，照片作为附件进入对话 |
+| C-6 取消 | ✅ | `camera cancelled / user tapped cancel after 2.6s` → `reply failed cancelled` |
+| C-7 连续两次 | ✅ | 两次 `invoke` 各自独立完成（一次 ok、一次 cancelled），没有互相顶掉 |
+| C-3/C-4 拒绝权限 | 未测 | 需要卸载重装把权限重置为 `notDetermined` |
+| C-9 超大图 | 未测 | 3024x4032 / 1.5 MB，离 8 MiB 上限还远 |
+| C-10 超时 | 未测 | 需临时把 `deadline` 改短（§4.1） |
+
+结论：**P1-03 通过**。0.9.0 时那些 1 s 内的 `cancelled` 在 0.9.2 的日志里不再出现——原因是当时既没有「呈现」记录，也分不清取消来源；现在每次都有 `presenting` / `shutter` / `cancelled … after N.Ns` 三段可查。
+
 ## 5 记录模板
 
 ```markdown
