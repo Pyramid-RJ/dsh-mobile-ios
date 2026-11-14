@@ -239,13 +239,18 @@ jobs:
           fi
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          # Never rewrite the working tree here: `git checkout -f -B main` used to
+          # reset every other file to origin/main, so a hand-made commit that was
+          # not pushed yet got committed again with the *old* content of every
+          # file it touched. That is how altstore/source.json silently lost
+          # 0.3.0-0.8.0 on 2026-11-14. Only that one file is staged.
           git fetch --depth=1 origin main
-          git checkout -f -B main origin/main
+          git reset --soft origin/main
           cp dist/source.json altstore/source.json
           if git diff --quiet -- altstore/source.json; then
             echo "altstore/source.json is already up to date"
             exit 0
           fi
           git add altstore/source.json
-          git commit -m "chore(altstore): publish $VERSION to the source"
-          git push origin main || echo "::warning::could not push altstore/source.json back to main"
+          git commit --only altstore/source.json -m "chore(altstore): publish $VERSION to the source"
+          git push origin HEAD:main || echo "::warning::could not push altstore/source.json back to main"
