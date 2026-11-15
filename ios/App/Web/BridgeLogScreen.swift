@@ -11,6 +11,7 @@ struct BridgeLogScreen: View {
     @ObservedObject private var bridgeLog = BridgeLog.shared
     @Environment(\.dismiss) private var dismiss
     @State private var copied = false
+    @State private var renewResult: String?
 
     var body: some View {
         NavigationStack {
@@ -27,6 +28,22 @@ struct BridgeLogScreen: View {
                                 .multilineTextAlignment(.trailing)
                         }
                     }
+                }
+
+                Section("续期取消（B7 / P0-18）") {
+                    Button {
+                        Task { await probeRenewCancel() }
+                    } label: {
+                        Label("发起续期并在 50 ms 后取消", systemImage: "arrow.uturn.backward.circle")
+                    }
+                    if let renewResult {
+                        Text(renewResult)
+                            .font(.caption.monospaced())
+                            .foregroundStyle(.secondary)
+                    }
+                    Text("应出现 auth.renew cancelled 与 reply failed cancelled；若显示 reply ok，说明续期在 50 ms 内就完成了，再点一次。")
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
                 }
 
                 Section("桥日志") {
@@ -73,6 +90,31 @@ struct BridgeLogScreen: View {
         if !reply.ok {
             BridgeLog.shared.append("diagnostics failed", detail: reply.message)
         }
+    }
+
+    /// B7 lives here rather than on the self-check screen: the probe needs an
+    /// open page, and this sheet is only reachable from one.
+    private func probeRenewCancel() async {
+        guard let host = BridgeHostRegistry.shared.current else {
+            renewResult = "当前没有打开的页面"
+            return
+        }
+        let script = """
+        (function () {
+          if (!window.__DSH_MOBILE_NATIVE__) { return 'no-bridge'; }
+          var controller = new AbortController();
+          window.__DSH_MOBILE_NATIVE__.invoke('auth.renew', {}, { signal: controller.signal })
+            .catch(function () {});
+          setTimeout(function () { controller.abort(); }, 50);
+          return 'started';
+        })();
+        """
+        let started = await withCheckedContinuation { (continuation: CheckedContinuation<String?, Never>) in
+            host.runInPage(script) { result in
+                continuation.resume(returning: result as? String)
+            }
+        }
+        renewResult = "已发起（" + (started ?? "nil") + "），看下面的桥日志"
     }
 
     private func copyAll() {

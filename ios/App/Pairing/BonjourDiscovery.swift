@@ -27,8 +27,11 @@ final class BonjourDiscovery: ObservableObject {
 
     func start() {
         guard browser == nil else { return }
+        // Peer-to-peer (AWDL) browsing needs entitlements this free-signed build
+        // does not carry and fails with -65555 NoAuth; plain Bonjour over Wi-Fi is
+        // all a same-network computer needs.
         let parameters = NWParameters()
-        parameters.includePeerToPeer = true
+        parameters.includePeerToPeer = false
         let browser = NWBrowser(
             for: .bonjourWithTXTRecord(type: Self.serviceType, domain: nil),
             using: parameters
@@ -60,8 +63,8 @@ final class BonjourDiscovery: ObservableObject {
         case .ready:
             self.state = hosts.isEmpty ? "正在搜索附近电脑…" : "找到 \(hosts.count) 台"
         case .failed(let error):
-            self.state = "搜索失败：" + error.localizedDescription
-            append("browser failed: " + error.localizedDescription)
+            self.state = Self.describe(error)
+            append("browser failed: " + error.localizedDescription + " (" + String(Self.code(of: error)) + ")")
         case .cancelled:
             self.state = "已停止搜索"
         default:
@@ -91,6 +94,21 @@ final class BonjourDiscovery: ObservableObject {
         if !hosts.isEmpty {
             state = "找到 \(hosts.count) 台"
         }
+    }
+
+    /// Turns the NWError into something the user can act on.
+    private static func describe(_ error: NWError) -> String {
+        switch code(of: error) {
+        case -65555: // kDNSServiceErr_NoAuth
+            return "搜索失败：没有本地网络权限，请在 设置 → 隐私与安全性 → 本地网络 里允许 DSH"
+        default:
+            return "搜索失败：" + error.localizedDescription
+        }
+    }
+
+    private static func code(of error: NWError) -> Int32 {
+        if case let .dns(code) = error { return code }
+        return 0
     }
 
     private func append(_ line: String) {
