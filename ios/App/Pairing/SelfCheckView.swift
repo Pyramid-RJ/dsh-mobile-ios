@@ -164,16 +164,32 @@ struct SelfCheckView: View {
             caFingerprint: authority?.sha256Hex,
             caNotAfter: authority?.notAfter
         )
-        guard !issues.isEmpty else {
-            return [Row(title: "凭据 · \(record.displayName)", detail: "有效期与 CA 指纹正常", level: .pass)]
+        var rows: [Row] = []
+        // Showing the CA's own notAfter proves the DER parser read the real
+        // certificate, which is what the "CA 已过期" path depends on (B8.7).
+        if let authority, let notAfter = authority.notAfter {
+            let formatter = DateFormatter()
+            formatter.dateFormat = "yyyy-MM-dd"
+            let expired = notAfter <= Date()
+            rows.append(Row(
+                title: "CA 有效期 · \(record.displayName)",
+                detail: "至 " + formatter.string(from: notAfter) + (expired ? "（已过期）" : "（有效）"),
+                level: expired ? .fail : .pass
+            ))
         }
-        return issues.map { issue in
+
+        guard !issues.isEmpty else {
+            rows.append(Row(title: "凭据 · \(record.displayName)", detail: "有效期与 CA 指纹正常", level: .pass))
+            return rows
+        }
+        rows.append(contentsOf: issues.map { issue in
             Row(
                 title: "凭据 · \(record.displayName)",
                 detail: issue.description,
                 level: .fail
             )
-        }
+        })
+        return rows
     }
 
     private func pageReport() async -> Row? {
