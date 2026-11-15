@@ -21,6 +21,14 @@
       "category": "utilities",
       "versions": [
         {
+          "version": "0.9.36",
+          "date": "2026-11-15",
+          "downloadURL": "https://github.com/Pyramid-RJ/dsh-mobile-ios/releases/download/ios-v0.9.36/DSHMobile-0.9.36-unsigned.ipa",
+          "size": 393649,
+          "minOSVersion": "17.0",
+          "localizedDescription": "Unsigned build 0.9.36"
+        },
+        {
           "version": "0.9.35",
           "date": "2026-11-15",
           "downloadURL": "https://github.com/Pyramid-RJ/dsh-mobile-ios/releases/download/ios-v0.9.35/DSHMobile-0.9.35-unsigned.ipa",
@@ -373,9 +381,9 @@
           "localizedDescription": "Unsigned build 0.1.0"
         }
       ],
-      "version": "0.9.35",
+      "version": "0.9.36",
       "versionDate": "2026-11-15",
-      "versionDescription": "Unsigned build 0.9.35"
+      "versionDescription": "Unsigned build 0.9.36"
     }
   ],
   "news": []
