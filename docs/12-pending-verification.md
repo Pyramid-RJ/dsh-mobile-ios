@@ -84,7 +84,19 @@
 
 **判定**：桥日志出现 `reply failed device_revoked`（而不是 `failed`），页面停止重试并提示重新连接。
 
-### B7【P0】续期取消（0.9.22 起，对应 P0-18）
+### B7【P0】续期取消（0.9.22 起，对应 P0-18）——✅ 2026-11-15 真机通过
+
+**证据（0.9.34 / build 83，11:26）**：
+
+```text
+11:26:34  invoke auth.renew
+11:26:34  event auth.renew.cancel
+11:26:34  auth.renew cancelled   ios-1794713194511-mga0x2jn14o
+11:26:34  reply failed cancelled  the page cancelled the renewal
+```
+
+连续三次（11:26:34 / 11:26:41 / 11:26:46）都是同样的顺序，说明页面发 `auth.renew.cancel` 后原生确实取消了在途请求并回 `cancelled`。另有两次 `reply ok` 后紧跟一个迟到的 `auth.renew.cancel`——那是续期在 50 ms 内就完成了，取消对已结束的请求是空操作，符合预期。
+
 
 **怎么验（0.9.34 起）**：先打开网页 → 右上角「桥日志」→「续期取消」→ 点「发起续期并在 50 ms 后取消」。（0.9.33 把它放在自检页，但自检在首页、没有打开的页面，探针拿不到桥宿主；0.9.34 移到桥日志，那里一定有页面。）
 
