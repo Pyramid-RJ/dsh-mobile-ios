@@ -172,10 +172,12 @@ struct UrlPolicyContractTests: XCTestCase {
 
 ### 8.1 实际记录（截至 2026-11-15，0.9.32）
 
-```markdown
-## 2026-11-15  iOS 0.9.32 (build 81)
+**发布判定（2026-11-15，0.9.38）**：P0 三项中 **B2 远程通道 ✅、B7 续期取消 ✅**，B8.7 CA 过期提示**部分**（自检可显示 CA 有效期，证明解析可用；过期分支需改 CA，未测，有单测覆盖）。按「P0 必须 100% 通过」的口径，严格说还差 B8.7 的过期分支；按「不影响功能可用性」判断，可以发布并附一条已知未验证项。
 
-- 构建：GitHub Actions `iOS CI`（macos-15, Xcode 16.4）+ `iOS Release`（ios-v0.9.32）
+```markdown
+## 2026-11-15  iOS 0.9.38 (build 87)
+
+- 构建：GitHub Actions `iOS CI`（macos-15, Xcode 16.4）+ `iOS Release`（ios-v0.9.38）
 - 产物校验：ipa 416,359 B，sha256 `de82a4ba…37537` 与 `SHA256SUMS`/`release.json` 一致；
   `Info.plist` 版本 0.9.32 / build 81 / minOS 17.0；二进制内含 0.9.31 新增的「页面没有加载出来」「证书校验失败」「重试」等文案
 - 上游：dsh-mobile 0.8.8 / DSH（本机安装版本）
