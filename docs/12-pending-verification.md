@@ -25,7 +25,18 @@
 
 **分级**：**P0 = 发布门槛（必须 100% 通过）**，P1 = 应有（≥90%）。15 项里 P0 只有 3 项——B2 远程通道（P0-03）、B7 续期取消（P0-18）、B8.7 CA 过期提示（P0-13）；其余 12 项是 P1。
 
-### B1【P1】局域网发现（S-4 / P1-08）——0.9.21 起
+### B1【P1】局域网发现（S-4 / P1-08）——⛔ 已移除（用户决定不做）
+
+2026-11-15 真机反馈：发现列表里全是 `ignored LAPTOP-5JND67S6 (02b77e85): announcement keys are deviceName,instanceId,origin,protocol`。电脑端广播的 **TXT 记录只有 4 个键**（没有 `port`），而我们的解析器按「恰好 5 键」校验（那是 `/mobile-access/discovery` 的 JSON 形状，docs/00 §2 里 TXT 与 JSON 的键集本来就不同）。
+
+用户明确表示**不需要局域网发现，只用配对链接/二维码**，因此 0.9.36 起移除了：
+
+- 首页「附近的电脑」区块；
+- `BonjourDiscovery`（NWBrowser 封装）；
+- `DSHDiscovery` 模块与其单测、`Package.swift` / `project.yml` 里的目标。
+
+保留的记录：TXT 是 4 键、JSON 是 5 键，若以后恢复发现功能，解析器要按来源区分，不能共用一套键集校验。
+
 
 **怎么验**
 

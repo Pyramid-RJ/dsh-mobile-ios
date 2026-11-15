@@ -15,7 +15,6 @@ let package = Package(
         .library(name: "DSHTransport", targets: ["DSHTransport"]),
         .library(name: "DSHDeviceStore", targets: ["DSHDeviceStore"]),
         .library(name: "DSHBridge", targets: ["DSHBridge"]),
-        .library(name: "DSHDiscovery", targets: ["DSHDiscovery"]),
     ],
     targets: [
         .target(
@@ -53,16 +52,6 @@ let package = Package(
         .target(
             name: "DSHBridge",
             path: "Sources/DSHBridge"
-        ),
-        .target(
-            name: "DSHDiscovery",
-            dependencies: ["DSHPairing"],
-            path: "Sources/DSHDiscovery"
-        ),
-        .testTarget(
-            name: "DSHDiscoveryTests",
-            dependencies: ["DSHDiscovery", "DSHPairing"],
-            path: "Tests/DSHDiscoveryTests"
         ),
         .testTarget(
             name: "DSHDeviceStoreTests",

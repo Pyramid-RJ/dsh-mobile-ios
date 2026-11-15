@@ -12,6 +12,7 @@ struct BridgeLogScreen: View {
     @Environment(\.dismiss) private var dismiss
     @State private var copied = false
     @State private var renewResult: String?
+    @State private var pageText: String?
 
     var body: some View {
         NavigationStack {
@@ -28,6 +29,22 @@ struct BridgeLogScreen: View {
                                 .multilineTextAlignment(.trailing)
                         }
                     }
+                }
+
+                Section("页面内容") {
+                    Button {
+                        Task { await readPageText() }
+                    } label: {
+                        Label("读取页面当前内容", systemImage: "doc.text.magnifyingglass")
+                    }
+                    if let pageText {
+                        Text(pageText)
+                            .font(.caption2.monospaced())
+                            .foregroundStyle(.secondary)
+                    }
+                    Text("隧道/远程连接下页面空白时，用它看页面到底渲染了什么。")
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
                 }
 
                 Section("续期取消（B7 / P0-18）") {
@@ -90,6 +107,33 @@ struct BridgeLogScreen: View {
         if !reply.ok {
             BridgeLog.shared.append("diagnostics failed", detail: reply.message)
         }
+    }
+
+    /// Reads what the page actually rendered, for the "connected but empty" case.
+    private func readPageText() async {
+        guard let host = BridgeHostRegistry.shared.current else {
+            pageText = "当前没有打开的页面"
+            return
+        }
+        let script = """
+        (function () {
+          var text = (document.body && document.body.innerText ? document.body.innerText : '')
+            .replace(/\\s+/g, ' ').trim();
+          return [
+            'title=' + document.title,
+            'path=' + location.pathname,
+            'chars=' + text.length,
+            'text=' + text.slice(0, 240)
+          ].join(' | ');
+        })();
+        """
+        let value = await withCheckedContinuation { (continuation: CheckedContinuation<String?, Never>) in
+            host.runInPage(script) { result in
+                continuation.resume(returning: result as? String)
+            }
+        }
+        pageText = value ?? "读取失败"
+        BridgeLog.shared.append("page text", detail: pageText)
     }
 
     /// B7 lives here rather than on the self-check screen: the probe needs an

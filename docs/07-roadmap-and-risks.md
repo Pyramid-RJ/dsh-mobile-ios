@@ -18,7 +18,7 @@ P0 Spike ──► P1 配对与信任 ──► P2 设备与持久化 ──► 
 | S-1：自签 CA 加载 | **✅ 2026-11-13 真机通过**（iPhone，iOS 27.0.1）+ 最小 demo（[`ios/App/Spike/S1ProbeView.swift`](../ios/App/Spike/S1ProbeView.swift)） | 明确"WKWebView 能否用固定 CA 加载自签页面" |
 | S-2：`<input type=file>` | **绕开**：改用原生 `files.pick`（0.9.2 真机通过） | 能选文件并回填 |
 | S-3：`getUserMedia` | **不做**：能力表不报语音，页面隐藏入口 | 能录音 |
-| S-4：`NWBrowser` 发现 | **代码就绪**（0.9.21），待真机 | 能发现 `_dsh-mobile._tcp.` 并读 TXT |
+| S-4：`NWBrowser` 发现 | **已移除**（0.9.36）：真机发现 TXT 只有 4 键，且用户决定只用配对链接/二维码 | 能发现 `_dsh-mobile._tcp.` 并读 TXT |
 
 > S-1 失败 → 立即停止后续投入，改为架构 A（纯浏览器壳），并按 [00 §5](00-feasibility.md#5-必须实测的关键假设spike-清单) 的重评估路径重写范围。
 

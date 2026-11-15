@@ -5,14 +5,13 @@ import DSHDeviceStore
 import DSHTrust
 
 /// The checks that can be answered without a person: stored credentials, their
-/// pinned CA, reachability, camera permission, discovery, and what the page sees.
+/// pinned CA, reachability, camera permission, and what the page sees.
 ///
 /// It exists so the pending-verification list (docs/12) has a place to start:
 /// when something fails on device, this screen says which layer is at fault
 /// before anyone reads a log.
 struct SelfCheckView: View {
     @ObservedObject var model: AppModel
-    @ObservedObject var discovery: BonjourDiscovery
 
     @State private var rows: [Row] = []
     @State private var running = false
@@ -147,12 +146,6 @@ struct SelfCheckView: View {
             title: "相机权限",
             detail: CameraCapture.statusName(camera) + (CameraCapture.isAvailable ? "，设备有相机" : "，设备没有相机"),
             level: camera == .authorized ? .pass : .warn
-        ))
-
-        results.append(Row(
-            title: "局域网发现",
-            detail: discovery.hosts.isEmpty ? discovery.state : "\(discovery.hosts.count) 台 · \(discovery.state)",
-            level: discovery.hosts.isEmpty ? .warn : .pass
         ))
 
         if let page = await pageReport() {
