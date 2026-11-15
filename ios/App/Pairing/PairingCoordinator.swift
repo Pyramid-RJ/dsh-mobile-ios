@@ -53,14 +53,16 @@ final class PairingCoordinator: ObservableObject {
                     append("链接未带 instance，跳过指纹比对（建议重新扫码）")
                 }
             } else {
-                // No private CA: a public certificate (a tunnel). A link that
-                // carries an `instance` fingerprint promised a CA, so a missing
-                // one is a contradiction - refuse rather than silently fall back
-                // to the system trust store.
-                guard link.instanceId == nil else {
-                    throw PairingFlowError.missingCertificateAuthority
+                // No private CA: the tunnel terminates TLS with a public
+                // certificate. The panel still puts an `instance` fingerprint in
+                // the link, but there is nothing here to verify it against - the
+                // token and the publicly trusted certificate are the real gates.
+                // Proceeding is recorded, not silent.
+                if link.instanceId != nil {
+                    append("网关没有私有 CA，链接里的 instance 无法校验，改用系统信任")
+                } else {
+                    append("网关没有私有 CA，改用系统信任（隧道/公网证书）")
                 }
-                append("网关没有私有 CA，改用系统信任（隧道/公网证书）")
             }
 
             let evaluator: any GatewayTrustEvaluating = authority.map { PinnedTrustEvaluator(certificateAuthority: $0) }

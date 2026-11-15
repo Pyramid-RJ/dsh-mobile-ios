@@ -10,8 +10,6 @@ public enum PairingFlowError: Error, Equatable, CustomStringConvertible, Localiz
     case notACertificate
     case unexpectedStatus(Int)
     case instanceMismatch(expected: String, actual: String)
-    /// The link demands a pinned CA but the gateway serves none.
-    case missingCertificateAuthority
     /// The pinned CA is past its validity window.
     case certificateAuthorityExpired
 
@@ -27,8 +25,6 @@ public enum PairingFlowError: Error, Equatable, CustomStringConvertible, Localiz
             return "取 CA 失败：HTTP " + String(code) + "（404 表示该网关没有私有 CA）"
         case .certificateAuthorityExpired:
             return "CA 已过期，请重新配对"
-        case .missingCertificateAuthority:
-            return "这条配对链接要求固定 CA，但网关没有提供 /mobile-access/ca.cer（请改用 dsh1 或公网地址）"
         case .instanceMismatch(let expected, let actual):
             return "CA 指纹与链接里的 instance 不一致（链接 "
                 + String(expected.prefix(12)) + "… / CA " + String(actual.prefix(12)) + "…）"

@@ -46,11 +46,11 @@
 
 ### B2【P0】远程通道（P0-03）——代码就绪（0.9.25），待隧道地址
 
-**0.9.25 补上的能力**：网关 `/mobile-access/ca.cer` 返回 404 时不再直接失败，而是**在链接不带 `instance` 的前提下退回系统信任**（公网证书）；链接带了 `instance` 却拿不到 CA 会明确报 `missingCertificateAuthority`。记录里 `certificateAuthority == nil` 即表示系统信任，自检页不会报错。
+**能力演进**：0.9.25 起，网关 `/mobile-access/ca.cer` 返回 404 时不再直接失败，而是退回系统信任；0.9.35 起**不再要求链接去掉 `instance`**——面板生成的链接总是带它，隧道下无从比对，于是改为记一条日志（「instance 无法校验」）后继续配对。记录里 `certificateAuthority == nil` 即表示系统信任，自检页不会报错。
 
 **怎么验**
 
-1. 电脑端起一条隧道（cloudflared 命名隧道或同等物），拿到 `https://<域名>`；
+1. 电脑端起一条隧道（cloudflared 命名隧道或同等物），拿到 `https://<域名>`（本次实测：`dsh.sakuraluna.online`）；
 2. App 里用该地址的配对链接配对（注意：隧道 origin 是 https，但**不需要**私有 CA）；
 3. 关掉 Wi-Fi、用蜂窝网络，重新打开页面。
 
