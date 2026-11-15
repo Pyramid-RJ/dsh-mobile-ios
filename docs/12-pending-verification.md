@@ -55,7 +55,18 @@
 
 **2026-11-15 真机反馈**：自检显示 `搜索失败：Network.NWError -65555 NoAuth`。原因是 `NWParameters.includePeerToPeer = true`——P2P（AWDL）浏览需要本包没有的 entitlement。0.9.34 起改为 `false`（同一 Wi-Fi 的 Bonjour 足够），并把 -65555 翻译成「没有本地网络权限，请在 设置 → 隐私与安全性 → 本地网络 里允许 DSH」。
 
-### B2【P0】远程通道（P0-03）——代码就绪（0.9.25），待隧道地址
+### B2【P0】远程通道（P0-03）——✅ 配对与页面加载通过（2026-11-15），切网未测
+
+**证据（0.9.35 / 0.9.36，隧道 `dsh.sakuraluna.online`）**：
+
+- 配对：`网关没有私有 CA，链接里的 instance 无法校验，改用系统信任` → `设备已登记：bb4f347d…` → `已写入 Keychain，共 2 台`；
+- 页面：`frontend=dedicated | gateway=authenticated | bridge=object | path=/`；
+- 内容：`page text` 从 `chars=24（HARNESS Loading plugins…）` 增长到 `chars=121410`（完整会话列表与消息），说明插件加载完成后页面正常。
+
+**已知体验**：刚进入时有一段空白（插件加载），页面自身显示 `Loading plugins…`，稍等即好。
+
+**仍未测**：关 Wi-Fi 切蜂窝后能否自动恢复。
+
 
 **能力演进**：0.9.25 起，网关 `/mobile-access/ca.cer` 返回 404 时不再直接失败，而是退回系统信任；0.9.35 起**不再要求链接去掉 `instance`**——面板生成的链接总是带它，隧道下无从比对，于是改为记一条日志（「instance 无法校验」）后继续配对。记录里 `certificateAuthority == nil` 即表示系统信任，自检页不会报错。
 
