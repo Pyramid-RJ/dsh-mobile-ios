@@ -167,6 +167,18 @@ final class AppModel: ObservableObject {
     // MARK: - Connect
 
     func connect(_ record: DeviceRecord) async {
+        // Re-entering the page we are already authenticated for should not cost
+        // two round trips: the stored cookies are still valid, and the page
+        // renews by itself through the bridge if the gateway disagrees.
+        if let existing = session,
+           existing.origin.description == record.origin,
+           !record.isExpired() {
+            log = ["复用已有会话，直接打开页面"]
+            status = "已连接 " + record.displayName
+            connection = .connected(record.displayName)
+            return
+        }
+
         session = nil
         log = []
         status = "连接 " + record.displayName + "…"

@@ -9,16 +9,56 @@ import DSHTransport
 /// WKHTTPCookieStore only offers setCookie(_:completionHandler:) per cookie, so
 /// they are installed one at a time and every completion is awaited.
 enum CookieInstaller {
-    static func install(_ planned: [PlannedCookie], into store: WKWebsiteDataStore) async {
+    /// Installs the cookies, giving up on each one after `timeout` seconds.
+    ///
+    /// `setCookie` has no timeout of its own, and a cookie store that never
+    /// calls back used to leave the page unloaded - a blank web view with no
+    /// error anywhere. A page without its session cookie is recoverable (the
+    /// page renews through the bridge); a page that never loads is not.
+    static func install(
+        _ planned: [PlannedCookie],
+        into store: WKWebsiteDataStore,
+        timeout: TimeInterval = 3
+    ) async {
         let cookieStore = store.httpCookieStore
+        var installed = 0
 
         for cookie in planned {
             guard let httpCookie = makeCookie(cookie) else { continue }
-            await withCheckedContinuation { (continuation: CheckedContinuation<Void, Never>) in
+            let done = await withCheckedContinuation { (continuation: CheckedContinuation<Bool, Never>) in
+                let guardBox = ResumeOnce(continuation)
                 cookieStore.setCookie(httpCookie) {
-                    continuation.resume()
+                    guardBox.resume(true)
+                }
+                DispatchQueue.main.asyncAfter(deadline: .now() + timeout) {
+                    guardBox.resume(false)
                 }
             }
+            if done { installed += 1 }
+        }
+
+        if installed != planned.count {
+            Task { @MainActor in
+                BridgeLog.shared.append(
+                    "cookies",
+                    detail: "installed \(installed)/\(planned.count) (some timed out)"
+                )
+            }
+        }
+    }
+
+    /// Resumes a continuation at most once, whichever side wins the race.
+    private final class ResumeOnce {
+        private var continuation: CheckedContinuation<Bool, Never>?
+
+        init(_ continuation: CheckedContinuation<Bool, Never>) {
+            self.continuation = continuation
+        }
+
+        func resume(_ value: Bool) {
+            guard let continuation else { return }
+            self.continuation = nil
+            continuation.resume(returning: value)
         }
     }
 

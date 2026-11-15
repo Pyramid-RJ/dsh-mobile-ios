@@ -12,6 +12,7 @@ struct GatewayWebViewScreen: View {
     @Environment(\.dismiss) private var dismiss
     @State private var showsLog = false
     @State private var loadFailure: String?
+    @State private var isLoading = true
 
     var body: some View {
         GatewayWebView(
@@ -23,11 +24,17 @@ struct GatewayWebViewScreen: View {
             },
             onLoadFailure: { message in
                 loadFailure = message
+                isLoading = false
+            },
+            onPageLoaded: {
+                isLoading = false
             }
         )
             .overlay {
                 if let loadFailure {
                     loadFailureOverlay(loadFailure)
+                } else if isLoading {
+                    loadingOverlay
                 }
             }
             .navigationTitle(session.origin.host)
@@ -50,6 +57,20 @@ struct GatewayWebViewScreen: View {
             .sheet(isPresented: $showsLog) {
                 BridgeLogScreen()
             }
+    }
+
+    /// The page needs a few seconds (cookies, then the gateway's own plugin
+    /// load); a spinner says so instead of an empty white view.
+    private var loadingOverlay: some View {
+        VStack(spacing: 10) {
+            ProgressView()
+            Text("正在加载页面…")
+                .font(.footnote)
+                .foregroundStyle(.secondary)
+        }
+        .padding(20)
+        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 14))
+        .allowsHitTesting(false)
     }
 
     /// F-2.4: a first-screen failure has to offer a way out - retry, or leave.
@@ -105,13 +126,15 @@ struct GatewayWebView: UIViewRepresentable {
     var onSwitchComputer: (() -> Void)?
     var onDeviceRevoked: (() -> Void)?
     var onLoadFailure: ((String) -> Void)?
+    var onPageLoaded: (() -> Void)?
 
     func makeCoordinator() -> Coordinator {
         Coordinator(
             session: session,
             onSwitchComputer: onSwitchComputer,
             onDeviceRevoked: onDeviceRevoked,
-            onLoadFailure: onLoadFailure
+            onLoadFailure: onLoadFailure,
+            onPageLoaded: onPageLoaded
         )
     }
 
@@ -148,6 +171,7 @@ struct GatewayWebView: UIViewRepresentable {
         let store = configuration.websiteDataStore
 
         Task { @MainActor in
+            BridgeLog.shared.append("loading page", detail: url.absoluteString + " · \(cookies.count) cookie(s)")
             await CookieInstaller.install(cookies, into: store)
             webView.load(URLRequest(url: url))
         }
@@ -177,14 +201,17 @@ struct GatewayWebView: UIViewRepresentable {
         private let evaluator: any GatewayTrustEvaluating
 
         private let onLoadFailure: ((String) -> Void)?
+        private let onPageLoaded: (() -> Void)?
 
         init(
             session: BrowserSession,
             onSwitchComputer: (() -> Void)?,
             onDeviceRevoked: (() -> Void)?,
-            onLoadFailure: ((String) -> Void)? = nil
+            onLoadFailure: ((String) -> Void)? = nil,
+            onPageLoaded: (() -> Void)? = nil
         ) {
             self.onLoadFailure = onLoadFailure
+            self.onPageLoaded = onPageLoaded
             evaluator = session.evaluator
             let advertised = BridgeCapabilities(implemented: [
                 .authRenew,
@@ -213,6 +240,8 @@ struct GatewayWebView: UIViewRepresentable {
         /// Records whether the gateway actually served the dedicated page: the
         /// page only takes the native branch when these markers are present.
         func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
+            let loaded = onPageLoaded
+            Task { @MainActor in loaded?() }
             let script = """
             (function () {
               var meta = document.querySelector('meta[name="dsh-mobile-gateway"]');
